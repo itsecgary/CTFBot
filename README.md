@@ -4,6 +4,10 @@ system that awards points for when members compete with the team. The bot keeps
 track of statistics like number of competitions competed in, points
 (from point system), ranking on server, and more.
 
-**Authors:**
+### Authors:
 - itsecgary
 - aldenschmidt
+
+### Creds:
+We included several utilities from NullCTF's bot. The integration of CTFTime and
+CTFd is very useful to this bot and assists the point system as well.

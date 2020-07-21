@@ -16,8 +16,9 @@ class Leaderboard(commands.Cog):
 
     @commands.command()
     async def leaders(self, ctx):
+        print('Need Functionality Here')
         #message = "Points: {}".format(points)
-        await ctx.send("HI")
+        #await ctx.send("HI")
 
 def setup(bot):
     bot.add_cog(Leaderboard(bot))
