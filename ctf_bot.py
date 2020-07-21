@@ -60,4 +60,4 @@ async def on_member_remove(member):
     print(f'{member} has left the server')
 
 # Secret Token
-bot.run('NzM0ODQxODkyMjkzODM2ODMx.XxYcrw.OIMDfr9DPu-BXfAF00WXIIXz57w')
+bot.run('')
