@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 class Competitions(commands.Cog):
 
@@ -7,11 +7,12 @@ class Competitions(commands.Cog):
         self.bot = bot
 
     @commands.Cog.listener()
-    async def upcoming():
-        print('Need Functionality Here')
+    async def on_ready(self):
+        print('*** Competitions Cog Loaded ***')
 
     @commands.command()
-
+    async def upcoming():
+        print('Need Functionality Here')
 
 def setup(bot):
     bot.add_cog(Competitions(bot))

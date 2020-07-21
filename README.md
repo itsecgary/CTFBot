@@ -6,3 +6,4 @@ track of statistics like number of competitions competed in, points
 
 **Authors:**
 - itsecgary
+- aldenschmidt
