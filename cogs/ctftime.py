@@ -87,7 +87,7 @@ class CtfTime(commands.Cog):
             ctftime_commands = list(set([c.qualified_name for c in CtfTime.walk_commands(self)][1:]))
             await ctx.send(f"Current ctftime commands are: {', '.join(ctftime_commands)}")
 
-    @ctftime.command(aliases=['now', 'running'])
+    @ctftime.command()
     async def current(self, ctx):
         now = datetime.utcnow()
         unix_now = int(now.replace(tzinfo=timezone.utc).timestamp())
@@ -112,7 +112,7 @@ class CtfTime(commands.Cog):
         if running == False: # No ctfs were found to be running
             await ctx.send("No CTFs currently running! Check out >ctftime countdown, and >ctftime upcoming to see when ctfs will start!")
 
-    @ctftime.command(aliases=["next"])
+    @ctftime.command()
     async def upcoming(self, ctx, amount=None):
         if not amount:
             amount = '3'
