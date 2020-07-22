@@ -16,6 +16,7 @@ def in_ctf_channel():
         else:
             await ctx.send("You must be in a created ctf channel to use ctf commands!")
             return False
+
     return commands.check(tocheck)
 
 def strip_string(tostrip, whitelist):
@@ -60,28 +61,42 @@ def getChallenges(url, username, password):
             r_solves = s.get(f"{url}/api/v1/users/me/solves")
             team_solves = r_solves.json()
 
-        solves = []
-        if team_solves['success'] == True:
-            for solve in team_solves['data']:
-                cat = solve['challenge']['category']
-                challname = solve['challenge']['name']
-                solves.append(f"<{cat}> {challname}")
         challenges = {}
         if all_challenges['success'] == True:
-            for chal in all_challenges['data']:
-                cat = chal['category']
-                challname = chal['name']
-                name = f"<{cat}> {challname}"
-                # print(name)
-                # print(strip_string(name, whitelist))
-                if name not in solves:
-                    challenges.update({strip_string(name, whitelist): 'Unsolved'})
+            for chall in all_challenges['data']:
+                cat = chall['category']
+                challname = chall['name']
+                value = chall['value']
+                chall_entry = {'name': challname, 'solved': False, 'solver': '', 'points': value}
+                if cat in challenges.keys():
+                    challenges[cat].append(chall_entry)
                 else:
-                    challenges.update({strip_string(name, whitelist): 'Solved'})
+                    challenges[cat] = [chall_entry]
         else:
             raise Exception("Error making request")
-        return challenges
 
+        if team_solves['success'] == True:
+            for solve in team_solves['data']:
+                # Get challenge info
+                cat = solve['challenge']['category']
+                challname = solve['challenge']['name']
+                solver = solve['user']
+
+                # Get user info
+                r_user = s.get(f"{url}/api/v1/users/{solver}")
+                user_profile = r_user.json()
+                solver = user_profile['data']['name']
+                print(solver)
+
+                # Change challenge solved info if solved by team
+                for i in range(len(challenges[cat])):
+                    print(challname)
+                    print(challenges[cat][i]['name'])
+                    if challname == challenges[cat][i]['name']:
+                        challenges[cat][i]['solved'] = True
+                        challenges[cat][i]['solver'] = solver
+
+        return challenges
 
 
 class CTF(commands.Cog):
@@ -156,9 +171,11 @@ class CTF(commands.Cog):
     @ctf.command()
     @in_ctf_channel()
     async def end(self, ctx):
-        await ctx.send("You can now use either `>ctf delete` (which will delete all data), or `>ctf archive/over` \
-which will move the channel and delete the role, but retain challenge info(`>config archive_category \
-\"archive category\"` to specify where to archive.")
+        await ctx.send("You can now use either `>ctf delete` (which will delete \
+                        all data), or `>ctf archive/over` which will move the \
+                        channel and delete the role, but retain challenge \
+                        info(`>config archive_category \"archive category\"` \
+                        to specify where to archive.")
 
     @commands.bot_has_permissions(manage_roles=True)
     @ctf.command()
@@ -295,25 +312,6 @@ which will move the channel and delete the role, but retain challenge info(`>con
                 return user_pass
         raise CredentialsNotFound("Set credentials with `>ctf setcreds \"username\" \"password\"`")
 
-    @staticmethod
-    def gen_page(challengelist): # will return page w/ less than 2k chars (total)
-        challenge_page = ""
-        challenge_pages = []
-        for c in challengelist:
-            # print(c)
-            if not len(challenge_page + c) >= 1989:
-                challenge_page += c
-                if c == challengelist[-1]: # if it is the last item
-                    challenge_pages.append(challenge_page)
-
-            elif len(challenge_page + c) >= 1989:
-                challenge_pages.append(challenge_page)
-                challenge_page = ""
-                challenge_page += c
-
-        # print(challenge_pages)
-        return challenge_pages
-
     @challenge.command(aliases=['ls', 'l'])
     @in_ctf_channel()
     async def list(self, ctx):
@@ -322,12 +320,18 @@ which will move the channel and delete the role, but retain challenge info(`>con
         ctf = server.find_one({'name': str(ctx.message.channel)})
         try:
             ctf_challenge_list = []
+            message = ""
             for k, v in ctf['challenges'].items():
-                challenge = f"[{k}]: {v}\n"
-                ctf_challenge_list.append(challenge)
+                message += "{0}\n".format(k)
+                for chall in v:
+                    message += "[{0}]({1}): ".format(chall['name'], chall['points'])
+                    if chall['solved'] == True:
+                        message += "Solved by {0}\n".format(chall['solver'])
+                    else:
+                        message += "Unsolved\n"
+                message += "\n"
 
-            for page in CTF.gen_page(ctf_challenge_list):
-                await ctx.send(f"```ini\n{page}```")
+            await ctx.send(f"```ini\n{message}```")
         except KeyError as e: # If nothing has been added to the challenges list
             await ctx.send("Add some challenges with `>ctf challenge add \"challenge name\"`")
         except:
