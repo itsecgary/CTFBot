@@ -8,14 +8,10 @@ show the top 10 members and their points
 ctf_help = '''
 `>ctf create "CTF NAME"`
 create a text channel and role in the CTF category for a ctf (must have permissions to manage channels)*
-`>ctf challenge [add/working/solved/remove] "challenge name"`
-add a ctf challenge to a list of challenges in the ctf, then mark it as solved or being worked on.  Shorthand: challenge -> chal/chall, add -> a, working -> w, solved -> s, remove -> r
 `>ctf challenge list`
-get a list of the challenges in the ctf, and their statuses
-`>ctf challenge pull [https://ctfd.url]`
-will add all of the challenges on the provided CTFd CTF and add them to your challenge list, including solve state.
-`>ctf setcreds [ctfd username] [password]`
-pin the message of ctf credentials, can be fetched by the bot later in order to use >ctf challenge pull.
+get a list of the challenges in the ctf, and their statuses. *Updates DB every time this is called*
+`>ctf setcreds [ctfd username] [password] [https://ctfd.url]`
+pin the message of ctf credentials, can be fetched by the bot later in order to use >ctf challenge list.
 `>ctf creds`
 gets the credentials from the pinned message.
 `>ctf [join/leave]`
