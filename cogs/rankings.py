@@ -15,7 +15,7 @@ class Leaderboard(commands.Cog):
         print('Need Functionality Here')
 
     @commands.command()
-    async def leaders(self, ctx):
+    async def top10(self, ctx):
         print('Need Functionality Here')
         #message = "Points: {}".format(points)
         #await ctx.send("HI")

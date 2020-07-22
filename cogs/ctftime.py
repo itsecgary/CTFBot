@@ -68,9 +68,7 @@ class CtfTime(commands.Cog):
             query = ctf['name']
             ctfs.update({'name': query}, {"$set":ctf}, upsert=True)
             got_ctfs.append(ctf['name'])
-        print(Fore.WHITE + f"{datetime.now()}: " + Fore.GREEN + f"Got and updated {got_ctfs}")
-        print(Style.RESET_ALL)
-
+        print(f"{datetime.now()}: " + f"Got and updated {got_ctfs}")
 
         for ctf in ctfs.find(): # Delete ctfs that are over from the db
             if ctf['end'] < unix_now:

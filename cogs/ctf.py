@@ -168,15 +168,6 @@ class CTF(commands.Cog):
             category = discord.utils.get(ctx.guild.categories, name=servarchive)
         await ctx.message.channel.edit(syncpermissoins=True, category=category)
 
-    @ctf.command()
-    @in_ctf_channel()
-    async def end(self, ctx):
-        await ctx.send("You can now use either `>ctf delete` (which will delete \
-                        all data), or `>ctf archive/over` which will move the \
-                        channel and delete the role, but retain challenge \
-                        info(`>config archive_category \"archive category\"` \
-                        to specify where to archive.")
-
     @commands.bot_has_permissions(manage_roles=True)
     @ctf.command()
     @in_ctf_channel()
@@ -322,7 +313,7 @@ class CTF(commands.Cog):
             ctf_challenge_list = []
             message = ""
             for k, v in ctf['challenges'].items():
-                message += "{0}\n".format(k)
+                message += "- {0}\n".format(k)
                 for chall in v:
                     message += "[{0}]({1}): ".format(chall['name'], chall['points'])
                     if chall['solved'] == True:
@@ -331,7 +322,7 @@ class CTF(commands.Cog):
                         message += "Unsolved\n"
                 message += "\n"
 
-            await ctx.send(f"```ini\n{message}```")
+            await ctx.send(f"```md\n{message}```")
         except KeyError as e: # If nothing has been added to the challenges list
             await ctx.send("Add some challenges with `>ctf challenge add \"challenge name\"`")
         except:
