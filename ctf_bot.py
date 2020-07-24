@@ -2,7 +2,7 @@ import discord
 import os
 from discord.ext import commands, tasks
 from itertools import cycle
-import config_vars
+from config_vars import *
 import help_info
 
 ################################ DATA STRUCTURES ###############################
@@ -12,24 +12,23 @@ bot.remove_command('help')
 #status = cycle(['making challenges', 'getting mad... jk', 'calculating points'])
 extensions = ['competitions', 'rankings', 'ctftime', 'ctf']
 
-points = {}
-num_ctfs = {}
-ranking = []
-
 #################################### EVENTS ####################################
 @bot.event # Startup duties
 async def on_ready():
-    print(f"{bot.user.name} - Online")
-    print(f"discord.py {discord.__version__}\n")
     print("-------------------------------")
-    await bot.change_presence(status=discord.Status.online)
+    print(f"{bot.user.name} - Online")
+    print(f"discord.py {discord.__version__}")
+    print("-------------------------------")
+    await bot.change_presence(status=discord.Status.online, activity=discord.Game(name=">help"))
 
-    # Add all current members to data structures
+    # Create current member info
     for guild in bot.guilds:
         for member in guild.members:
-            points[member] = 0
-            num_ctfs[member] = 0
-            ranking.append(member)
+            server = members[str(guild)]
+            member_info = {"name": member.name, "points": 0, "ctfs_competed": []}
+            if not member.bot:
+                server.update_one({"name": member.name}, {"$set": member_info}, upsert=True)
+                print("[+] Added member {} to database".format(member))
 
 @bot.event # Displays error messages
 async def on_command_error(ctx, error):
@@ -48,9 +47,11 @@ async def on_command_error(ctx, error):
 @bot.event # Adds new member to data structures
 async def on_member_join(member):
     print(f'{member} has joined the server')
-    points[member] = 0
-    num_ctfs[member] = 0
-    ranking.append(member)
+    server = members[str(guild.id)]
+    member_info = {"name": member.name, "points": 0, "ctfs_competed": []}
+    if not member.bot:
+        server.update_one({"name": member.name}, {"$set": member_info}, upsert=True)
+        print("[+] Added member {} to database".format(member))
 
 @bot.event # Removes existing member from data structures
 async def on_member_remove(member):
@@ -75,10 +76,6 @@ async def help(ctx, page=None):
 
     await ctx.channel.send(embed=emb)
 
-# Sorts the rankings array by number of points (do this when adding person(s))
-def sort_by_ranking():
-    print('Need Functionality Here')
-
 @bot.command()
 async def testPoints(ctx):
     message = "**Points:**\n```"
@@ -91,4 +88,4 @@ async def testPoints(ctx):
 if __name__ == '__main__':
     for extension in extensions:
         bot.load_extension('cogs.' + extension)
-    bot.run(config_vars.discord_token)
+    bot.run(discord_token)

@@ -9,13 +9,16 @@ import sys
 sys.path.append("..")
 from config_vars import *
 
-
 class CtfTime(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
         self.upcoming_l = []
         self.updateDB.start() # pylint: disable=no-member
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print('*** CTFTime Cog Loaded ***')
 
     async def cog_command_error(self, ctx, error):
         print(error)
@@ -77,7 +80,6 @@ class CtfTime(commands.Cog):
     @updateDB.before_loop
     async def before_updateDB(self):
         await self.bot.wait_until_ready()
-
 
     @commands.group()
     async def ctftime(self, ctx):
@@ -184,7 +186,7 @@ class CtfTime(commands.Cog):
                 await ctx.send(f":triangular_flag_on_post:  **{year} CTFtime Leaderboards**```ini\n{leaderboards}```")
             except KeyError as e:
                 await ctx.send("Please supply a valid year.")
-                # LOG THIS
+
     @ctftime.command()
     async def timeleft(self, ctx):
         now = datetime.utcnow()

@@ -8,6 +8,7 @@ import traceback
 sys.path.append("..")
 from config_vars import *
 
+#################################### METHODS ###################################
 def in_ctf_channel():
     async def tocheck(ctx):
         # A check for ctf context specific commands
@@ -24,14 +25,9 @@ def strip_string(tostrip, whitelist):
     stripped = ''.join([ch for ch in tostrip if ch in whitelist])
     return stripped.strip()
 
-class InvalidProvider(Exception):
-    pass
-class InvalidCredentials(Exception):
-    pass
-class CredentialsNotFound(Exception):
-    pass
-class NonceNotFound(Exception):
-    pass
+# Sorts the rankings array by number of points (do this when adding person(s))
+def sort_by_ranking():
+    print('Need Functionality Here')
 
 def getChallenges(url, username, password):
     #whitelist = set(string.ascii_letters+string.digits+' '+'-'+'!'+'#'+'$'+'_'+'['+']'+'('+')'+'?'+'@'+'+'+'<'+'>')
@@ -52,8 +48,12 @@ def getChallenges(url, username, password):
         r = s.post(f"{url}/login", data={"name": username, "password": password, "nonce": nonce})
         if "Your username or password is incorrect" in r.text:
             raise InvalidCredentials("Invalid login credentials")
+
+        # Get challenge information
         r_chals = s.get(f"{url}/api/v1/challenges")
         all_challenges = r_chals.json()
+
+        # Get team solves
         r_solves = s.get(f"{url}/api/v1/teams/me/solves")
         team_solves = r_solves.json()
         if 'success' not in team_solves:
@@ -95,10 +95,23 @@ def getChallenges(url, username, password):
 
         return challenges
 
+#################################### CLASSES ###################################
+class InvalidProvider(Exception):
+    pass
+class InvalidCredentials(Exception):
+    pass
+class CredentialsNotFound(Exception):
+    pass
+class NonceNotFound(Exception):
+    pass
 
 class CTF(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print('*** CTF Cog Loaded ***')
 
     @commands.group()
     async def ctf(self, ctx):
@@ -286,5 +299,6 @@ class CTF(commands.Cog):
         except:
             traceback.print_exc()
 
+#################################### SETUP #####################################
 def setup(bot):
     bot.add_cog(CTF(bot))

@@ -8,6 +8,12 @@ system that awards points for when members compete with the team. The bot keeps
 track of statistics like number of competitions competed in, points
 (from point system), ranking on server, and more.
 
+Future Platform Integration:
+- CTFx
+- rCTF
+- XCTF
+- FacebookCTF
+
 ### Authors:
 - itsecgary
 - aldenschmidt
