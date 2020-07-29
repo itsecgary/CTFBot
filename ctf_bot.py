@@ -43,10 +43,13 @@ async def on_ready():
                     "cryptocurrency": 0, "network": 0, "overall": 0
                 }
             }
-            if not member.bot:
+            m = members.find_one({'name': member_info['name']})
+            if not member.bot and m == None:
                 member_cnt += 1
                 members.update_one({"name": member.name}, {"$set": member_info}, upsert=True)
                 print("[+] Added member {} to database of {}".format(member, guild.name))
+            else:
+                print("[/] Member not added because member is either bot or already exists")
 
         # Set team info in server info db
         team_info = {"name": str(guild.name), "guild id": str(guild.id),"num members": member_cnt}
@@ -84,7 +87,8 @@ async def on_member_remove(member):
 
 @bot.event
 async def on_message(message):
-    if str(message.guild.id) == '734854267847966720' or message.channel.name == 'ctf-bot-dev':
+    if str(message.channel.type == "private") or str(message.guild.id) == '734854267847966720' \
+       or message.channel.name == 'ctf-bot-dev':
         await bot.process_commands(message)
 
 ################################ OTHER FUNCTIONS ###############################
