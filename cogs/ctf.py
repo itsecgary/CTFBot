@@ -190,21 +190,34 @@ class CTF(commands.Cog):
         await user.remove_roles(role)
         await ctx.send(f"{user} has left the {str(ctx.message.channel)} team.")
 
-    @commands.bot_has_permissions(manage_messages=True)
-    @commands.has_permissions(manage_messages=True)
     @ctf.command()
-    @in_ctf_channel()
-    async def setcreds(self, ctx, username, password, site):
-        if not creds.keys() == []:
-            await ctx.send("Replacing **{}**'s creds".format(creds["user"]))
-        if ctx.message.channel.type == "dm":
-            creds["user"] = username
-            creds["pass"] = password
-            creds["site"] = site
-            message = "CTF credentials set. \n**Username:**\t` {0} ` ".format(username) + \
-                      "\n**Password:**\t` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
-            msg = await ctx.send(message)
-            await msg.pin()
+    async def setcreds(self, ctx, username, password, site, guild_name, channel):
+        if creds:
+            await ctx.send("Replacing **{}**'s creds".format(creds['user']))
+        if str(ctx.message.channel.type) == "private":
+            channels = {}
+            for g in self.bot.guilds:
+                if g.name == guild_name:
+                    channels = g.channels
+
+            if channels:
+                channel_id = 0
+                for h in channels:
+                    if h.name == channel:
+                        channel_id = h.id
+                if not channel_id == 0:
+                    creds['user'] = username
+                    creds['pass'] = password
+                    creds['site'] = site
+                    message = "CTF credentials set. \n**Username:**\t` {0} ` ".format(username) + \
+                              "\n**Password:**\t` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
+                    ch = self.bot.get_channel(channel_id)
+                    msg = await ch.send(message)
+                    await msg.pin()
+                else:
+                    await ctx.send("Channel is incorrect or doesn't exist.")
+            else:
+                await ctx.send("Guild is incorrect or doesn't exist.")
         else:
             await ctx.send("DM me to set the credentials")
 
