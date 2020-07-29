@@ -8,11 +8,14 @@ import traceback
 sys.path.append("..")
 from config_vars import *
 
+# Stores credentials locally (not in database)
+creds = {}
+
 #################################### METHODS ###################################
 def in_ctf_channel():
     async def tocheck(ctx):
         # A check for ctf context specific commands
-        if teamdb[str(ctx.guild.id)].find_one({'name': str(ctx.message.channel)}):
+        if client[str(ctx.guild.name).replace(' ', '-')]['ctfs'].find_one({'name': str(ctx.message.channel)}):
             return True
         else:
             await ctx.send("You must be in a created ctf channel to use ctf commands!")
@@ -20,17 +23,7 @@ def in_ctf_channel():
 
     return commands.check(tocheck)
 
-def strip_string(tostrip, whitelist):
-    # for discord channel creation
-    stripped = ''.join([ch for ch in tostrip if ch in whitelist])
-    return stripped.strip()
-
-# Sorts the rankings array by number of points (do this when adding person(s))
-def sort_by_ranking():
-    print('Need Functionality Here')
-
 def getChallenges(url, username, password):
-    #whitelist = set(string.ascii_letters+string.digits+' '+'-'+'!'+'#'+'$'+'_'+'['+']'+'('+')'+'?'+'@'+'+'+'<'+'>')
     fingerprint = "Powered by CTFd"
     s = requests.session()
     if url[-1] == "/": url = url[:-1]
@@ -100,8 +93,6 @@ class InvalidProvider(Exception):
     pass
 class InvalidCredentials(Exception):
     pass
-class CredentialsNotFound(Exception):
-    pass
 class NonceNotFound(Exception):
     pass
 
@@ -123,20 +114,16 @@ class CTF(commands.Cog):
     @commands.has_permissions(manage_channels=True)
     @ctf.command()
     async def create(self, ctx, name):
-        try:
-            sconf = serverdb[str(ctx.guild.id) + '-CONF']
-            servcat = sconf.find_one({'name': "category_name"})['ctf_category']
-        except:
-            servcat = "CTF"
-
+        servcat = "CTF"
         category = discord.utils.get(ctx.guild.categories, name=servcat)
         if category == None: # Checks if category exists, if it doesn't it will create it.
             await ctx.guild.create_category(name=servcat)
             category = discord.utils.get(ctx.guild.categories, name=servcat)
 
-        ctf_name = strip_string(name, set(string.ascii_letters + string.digits + ' ' + '-')).replace(' ', '-').lower()
+        whitelist = set(string.ascii_letters + string.digits + ' ' + '-')
+        ctf_name = ''.join([ch for ch in name if ch in whitelist]).strip().replace(' ', '-').lower()
         await ctx.guild.create_text_channel(name=ctf_name, category=category)
-        server = teamdb[str(ctx.guild.id)]
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         await ctx.guild.create_role(name=ctf_name, mentionable=True)
         ctf_info = {'name': ctf_name, "text_channel": ctf_name}
         server.update({'name': ctf_name}, {"$set": ctf_info}, upsert=True)
@@ -154,7 +141,7 @@ class CTF(commands.Cog):
             await ctx.send(f"`{role.name}` role deleted")
         except: # role most likely already deleted with archive
             pass
-        teamdb[str(ctx.guild.id)].remove({'name': str(ctx.message.channel)})
+        client[str(ctx.guild.name).replace(' ', '-')]['ctfs'].remove({'name': str(ctx.message.channel)})
         await ctx.send(f"`{str(ctx.message.channel)}` deleted from db")
 
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
@@ -165,26 +152,34 @@ class CTF(commands.Cog):
         role = discord.utils.get(ctx.guild.roles, name=str(ctx.message.channel))
         await role.delete()
         await ctx.send(f"`{role.name}` role deleted, archiving channel.")
-        try:
-            sconf = serverdb[str(ctx.guild.id) + '-CONF'] # put this in a try/except, if it doesn't exist set default to CTF
-            servarchive = sconf.find_one({'name': "archive_category_name"})['archive_category']
-        except:
-            servarchive = "ARCHIVE"
-
+        servarchive = "ARCHIVE"
         category = discord.utils.get(ctx.guild.categories, name=servarchive)
+
         if category == None: # Checks if category exists, if it doesn't it will create it.
             await ctx.guild.create_category(name=servarchive)
             category = discord.utils.get(ctx.guild.categories, name=servarchive)
-        await ctx.message.channel.edit(syncpermissoins=True, category=category)
+        await ctx.message.channel.edit(syncpermissions=True, category=category)
 
     @commands.bot_has_permissions(manage_roles=True)
     @ctf.command()
     @in_ctf_channel()
-    async def join(self, ctx):
+    async def join(self, ctx, alias):
         role = discord.utils.get(ctx.guild.roles, name=str(ctx.message.channel))
         user = ctx.message.author
         await user.add_roles(role)
         await ctx.send(f"{user} has joined the {str(ctx.message.channel)} team!")
+
+        server = client[str(ctx.guild.name).replace(' ', '-')]['members']
+        member = server.find_one({'name': str(user)})
+
+        arr = member['aliases']
+        if arr == []:
+            arr = [alias]
+        else:
+            arr.append(alias)
+
+        member_info = {'name': str(user), 'aliases': arr}
+        server.update({'name': str(user)}, {"$set": member_info}, upsert=True)
 
     @commands.bot_has_permissions(manage_roles=True)
     @ctf.command()
@@ -195,69 +190,43 @@ class CTF(commands.Cog):
         await user.remove_roles(role)
         await ctx.send(f"{user} has left the {str(ctx.message.channel)} team.")
 
-    @ctf.group()
-    @in_ctf_channel()
-    async def challenge(self, ctx):
-        pass
-
     @commands.bot_has_permissions(manage_messages=True)
     @commands.has_permissions(manage_messages=True)
     @ctf.command()
     @in_ctf_channel()
     async def setcreds(self, ctx, username, password, site):
-        pinned = await ctx.message.channel.pins()
-        for pin in pinned:
-            if "CTF credentials set." in pin.content:
-                await pin.unpin()
-        message = "CTF credentials set. \n**Username:**\t` {0} ` ".format(username) + \
-                  "\n**Password:**\t` {0} ` \n**Website:**\t` {1} `".format(password, site)
-        msg = await ctx.send(message)
-        await msg.pin()
+        if not creds.keys() == []:
+            await ctx.send("Replacing **{}**'s creds".format(creds["user"]))
+        if ctx.message.channel.type == "dm":
+            creds["user"] = username
+            creds["pass"] = password
+            creds["site"] = site
+            message = "CTF credentials set. \n**Username:**\t` {0} ` ".format(username) + \
+                      "\n**Password:**\t` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
+            msg = await ctx.send(message)
+            await msg.pin()
+        else:
+            await ctx.send("DM me to set the credentials")
 
-    @commands.bot_has_permissions(manage_messages=True)
-    @ctf.command()
-    @in_ctf_channel()
-    async def creds(self, ctx):
-        pinned = await ctx.message.channel.pins()
-        try:
-            info = CTF.get_creds(pinned)
-            message = "**Username:**\t` {} ` ".format(info[0]) + \
-                      "\n**Password:**\t` {} ` \n**Website:**\t` {} `".format(info[1], info[2])
-            await ctx.send(message)
-            #await ctx.send(f"name:`{user_pass[0]}` password:`{user_pass[1]}`")
-        except CredentialsNotFound as cnfm:
-            await ctx.send(cnfm)
-
-    @staticmethod
-    def get_creds(pinned):
-        for pin in pinned:
-            if "CTF credentials set." in pin.content:
-                vals = pin.content.split(" \n")
-                info = [vals[1].split(" ")[1], vals[2].split(" ")[1], vals[3].split(" ")[1]]
-                return info
-        raise CredentialsNotFound("Set credentials with `>ctf setcreds \"username\" \"password\"`")
-
-    #@challenge.command()
-    #@in_ctf_channel()
     @staticmethod
     async def pull(self, ctx, url):
         try:
-            try:
-                pinned = await ctx.message.channel.pins()
-                user_pass = CTF.get_creds(pinned)
-            except CredentialsNotFound as cnfm:
-                await ctx.send(cnfm)
-            ctfd_challs = getChallenges(url, user_pass[0], user_pass[1])
-            ctf = teamdb[str(ctx.guild.id)].find_one({'name': str(ctx.message.channel)})
+            if creds.keys() == []:
+                await ctx.send("Set credentials with `>ctf setcreds \"username\" \"password\" \"website\"`")
+                return
+
+            ctfd_challs = getChallenges(url, creds["user"], creds["pass"])
+            server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+            ctf = server.find_one({'name': str(ctx.message.channel)})
+
             try: # If there are existing challenges already...
                 challenges = ctf['challenges']
                 challenges.update(ctfd_challs)
             except:
                 challenges = ctfd_challs
-            ctf_info = {'name': str(ctx.message.channel),
-            'challenges': challenges
-            }
-            teamdb[str(ctx.guild.id)].update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
+
+            ctf_info = {'name': str(ctx.message.channel), 'challenges': challenges}
+            server.update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
             await ctx.message.add_reaction("✅")
         except InvalidProvider as ipm:
             await ctx.send(ipm)
@@ -270,17 +239,14 @@ class CTF(commands.Cog):
         except:
             traceback.print_exc()
 
-    @challenge.command()
+    @ctf.command()
     @in_ctf_channel()
-    async def list(self, ctx):
-        pinned = await ctx.message.channel.pins()
-        info = CTF.get_creds(pinned)
-        print("{}".format(info))
-        CTF.pull(self, ctx, info[2])
-        print("after pull")
+    async def challenges(self, ctx):
+        print("Listing challenges for {}".format(ctx.guild.name))
+        CTF.pull(self, ctx, creds["site"])
 
         ctf_challenge_list = []
-        server = teamdb[str(ctx.guild.id)]
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         ctf = server.find_one({'name': str(ctx.message.channel)})
         try:
             ctf_challenge_list = []
