@@ -57,18 +57,23 @@ async def on_ready():
 
 @bot.event # Displays error messages
 async def on_command_error(ctx, error):
+    msg = ""
     if isinstance(error, commands.CommandNotFound):
         return
     if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send("Missing a required argument.  Do >help")
+        msg += "Missing a required argument.  Do >help\n"
     if isinstance(error, commands.MissingPermissions):
-        await ctx.send("You do not have the appropriate permissions to run this command.")
+        msg += "You do not have the appropriate permissions to run this command.\n"
     if isinstance(error, commands.BotMissingPermissions):
-        await ctx.send("I don't have sufficient permissions!")
+        msg += "I don't have sufficient permissions!\n"
+    if msg == "":
+        if not isinstance(error, commands.CheckFailure):
+            msg += "Invalid command.\n"
+            print("error not caught")
+            print(error)
+            await ctx.send(msg)
     else:
-        await ctx.send("*error*")
-        print("error not caught")
-        print(error)
+        await ctx.send(msg)
 
 @bot.event # Adds new member to data structures
 async def on_member_join(member):
@@ -86,10 +91,10 @@ async def on_member_remove(member):
     # Purge this member from the data structures
 
 @bot.event
-async def on_message(message):
-    if str(message.channel.type == "private") or str(message.guild.id) == '734854267847966720' \
-       or message.channel.name == 'ctf-bot-dev':
-        await bot.process_commands(message)
+async def on_message(ctx):
+    if str(ctx.channel.type == "private") or str(ctx.guild.id) == '734854267847966720' \
+       or ctx.channel.name == 'ctf-bot-dev':
+        await bot.process_commands(ctx)
 
 ################################ OTHER FUNCTIONS ###############################
 @bot.command()
