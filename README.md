@@ -14,6 +14,32 @@ Future Platform Integration:
 - XCTF
 - FacebookCTF
 
+## Point System
+The point system we have developed aims to be a reasonable system to grade a
+member's value in each specific category. We have included 10 different categories
+to have ratings on as we have encountered them throughout several CTF competitions.
+
+**Categories:**
+- Crypto
+- Forensics
+- OSINT
+- Web
+- Pwn/Bin
+- Reverse
+- HTB
+- Cryptocurrency
+- Network
+
+Each of these categories will be put through the following formula to decide the
+value for each user:
+
+<img src="point_system_challs.PNG" alt="Point System Formula">
+
+For each competition, the values for each category will be averages to make it equal.
+To calculate the **Overall** value of a member, the bot will take the average of
+all of the categories. The **Overall** value is the underlying value of the
+leaderboard and determines a member's rank.
+
 ### Authors:
 - itsecgary
 - aldenschmidt
