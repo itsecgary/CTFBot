@@ -33,7 +33,7 @@ to have ratings on as we have encountered them throughout several CTF competitio
 Each of these categories will be put through the following formula to decide the
 value for each user:
 
-<img src="point_system_challs.PNG" alt="Point System Formula">
+<img src="points_system_challs.PNG" alt="Point System Formula">
 
 For each competition, the values for each category will be averages to make it equal.
 To calculate the **Overall** value of a member, the bot will take the average of
