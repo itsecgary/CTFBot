@@ -16,10 +16,6 @@ class CtfTime(commands.Cog):
         self.upcoming_l = []
         self.updateDB.start() # pylint: disable=no-member
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print('*** CTFTime Cog Loaded ***')
-
     async def cog_command_error(self, ctx, error):
         print(error)
 
@@ -71,7 +67,7 @@ class CtfTime(commands.Cog):
             query = ctf['name']
             ctfs.update({'name': query}, {"$set":ctf}, upsert=True)
             got_ctfs.append(ctf['name'])
-        print(f"{datetime.now()}: " + f"Got and updated {got_ctfs}")
+        print(f"{datetime.now()}: " + f"\n[Updated] Upcoming Competitions: \n{got_ctfs}")
 
         for ctf in ctfs.find(): # Delete ctfs that are over from the db
             if ctf['end'] < unix_now:
@@ -83,7 +79,6 @@ class CtfTime(commands.Cog):
 
     @commands.group()
     async def ctftime(self, ctx):
-
         if ctx.invoked_subcommand is None:
             # If the subcommand passed does not exist, its type is None
             ctftime_commands = list(set([c.qualified_name for c in CtfTime.walk_commands(self)][1:]))

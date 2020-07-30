@@ -48,10 +48,6 @@ class Leaderboard(commands.Cog):
             l_commands = list(set([c.qualified_name for c in CTF.walk_commands(self)][1:]))
             await ctx.send("Current ctf commands are: \n```\n{0}```".format('\n'.join(l_commands)))
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print('*** Leaderboard Cog Loaded ***')
-
     @commands.command()
     async def rank(self, ctx):
         print('Need Functionality Here')

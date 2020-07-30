@@ -21,7 +21,7 @@ def in_ctf_channel():
 
     return commands.check(tocheck)
 
-def getChallenges(url, username, password):
+def getChallenges(ctx, url, username, password):
     fingerprint = "Powered by CTFd"
     s = requests.session()
     if url[-1] == "/": url = url[:-1]
@@ -52,12 +52,18 @@ def getChallenges(url, username, password):
             r_solves = s.get(f"{url}/api/v1/users/me/solves")
             team_solves = r_solves.json()
 
+        # Variables
         challenges = {}
+        total_points = 0
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+
+        # Add all challenges
         if all_challenges['success'] == True:
             for chall in all_challenges['data']:
                 cat = chall['category']
                 challname = chall['name']
                 value = chall['value']
+                total_points += value
                 chall_entry = {'name': challname, 'solved': False, 'solver': '', 'points': value}
                 if cat in challenges.keys():
                     challenges[cat].append(chall_entry)
@@ -66,6 +72,12 @@ def getChallenges(url, username, password):
         else:
             raise Exception("Error making request")
 
+        # Add total points to db
+        ctf_info = {'name': str(ctx.message.channel), 'total points': total_points}
+        server.update({'name': str(ctx.message.channel)}, {"$unset": {'total points': ""}}, upsert=True)
+        server.update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
+
+        # Add team solves
         if team_solves['success'] == True:
             for solve in team_solves['data']:
                 # Get challenge info
@@ -77,6 +89,7 @@ def getChallenges(url, username, password):
                 r_user = s.get(f"{url}/api/v1/users/{solver}")
                 user_profile = r_user.json()
                 solver = user_profile['data']['name']
+                # NEED TO SEARCH THE ALIASES
 
                 # Change challenge solved info if solved by team
                 for i in range(len(challenges[cat])):
@@ -97,12 +110,7 @@ class NonceNotFound(Exception):
 class CTF(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        # Stores credentials locally (not in database)
-        self.creds = {}
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print('*** CTF Cog Loaded ***')
+        self.creds = {} # Stores credentials locally (not in database)
 
     @commands.group()
     async def ctf(self, ctx):
@@ -192,8 +200,9 @@ class CTF(commands.Cog):
 
     @ctf.command()
     async def setcreds(self, ctx, username, password, site, guild_name, channel):
+        replace_msg = ""
         if self.creds and self.creds[str(guild_name) + "." + str(channel)]:
-            await ctx.send("Replacing **{}**'s creds".format(self.creds[str(guild_name) + "." + str(channel)]['user']))
+            replace_msg += "Replacing **{}**'s creds".format(self.creds[str(guild_name) + "." + str(channel)]['user'])
 
         if str(ctx.message.channel.type) == "private":
             channels = {}
@@ -219,9 +228,12 @@ class CTF(commands.Cog):
                     # Get rid of pins
                     pinned = await ch.pins()
                     for pin in pinned:
-                        print(pin)
                         if "CTF credentials set." in pin.content:
                             await pin.unpin()
+
+                    # Send replace message if need be
+                    if not replace_msg == "":
+                        await ch.send(replace_msg)
 
                     msg = await ch.send(message)
                     await msg.pin()
@@ -231,8 +243,6 @@ class CTF(commands.Cog):
                 await ctx.send("Guild is incorrect or doesn't exist.")
         else:
             await ctx.send("DM me to set the credentials")
-        print(self.creds)
-
 
     @staticmethod
     async def pull(self, ctx, url):
@@ -244,18 +254,11 @@ class CTF(commands.Cog):
             user = self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["user"]
             password = self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["pass"]
             print("before getChallenges")
-            ctfd_challs = getChallenges(url, user, password)
+            ctfd_challs = getChallenges(ctx, url, user, password)
             print("after getChallenges")
             server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-            ctf = server.find_one({'name': str(ctx.message.channel)})
 
-            try: # If there are existing challenges already...
-                challenges = ctf['challenges']
-                challenges.update(ctfd_challs)
-            except:
-                challenges = ctfd_challs
-
-            ctf_info = {'name': str(ctx.message.channel), 'challenges': challenges}
+            ctf_info = {'name': str(ctx.message.channel), 'challenges': ctfd_challs}
             server.update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
             await ctx.message.add_reaction("✅")
         except InvalidProvider as ipm:
@@ -272,11 +275,7 @@ class CTF(commands.Cog):
     @ctf.command()
     @in_ctf_channel()
     async def challenges(self, ctx):
-        print("Listing challenges for {}".format(ctx.guild.name))
-        print("before")
-        print(self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["site"])
-        CTF.pull(self, ctx, self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["site"])
-        print("after")
+        await CTF.pull(self, ctx, self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["site"])
 
         ctf_challenge_list = []
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']

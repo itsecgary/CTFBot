@@ -8,52 +8,32 @@ import help_info
 ################################ DATA STRUCTURES ###############################
 bot = commands.Bot(command_prefix = '>')
 bot.remove_command('help')
-
-#status = cycle(['making challenges', 'getting mad... jk', 'calculating points'])
 extensions = ['competitions', 'rankings', 'ctftime', 'ctf']
 
 #################################### EVENTS ####################################
-@bot.event # Startup duties
+@bot.event # Show banner and add members to respective guilds in db
 async def on_ready():
-    print("-------------------------------")
-    print(f"{bot.user.name} - Online")
-    print(f"discord.py {discord.__version__}")
-    print("-------------------------------")
+    print("\n|--------------------|")
+    print(f"|  {bot.user.name} - Online   |")
+    print(f"|  discord.py {discord.__version__}  |")
+    print("|--------------------|")
     await bot.change_presence(status=discord.Status.online, activity=discord.Game(name=">help"))
 
     # Create current member info
     for guild in bot.guilds:
-        server = client[str(guild.name).replace(' ', '-')]
+        print("\n----------------------- {} -----------------------".format(guild.name))
         member_cnt = 0
         for member in guild.members:
-            members = server['members']
-            member_info = {
-                "name": member.name + '#' + member.discriminator,
-                "points": 0,
-                "ctfs_competed": [],
-                "aliases": [],
-                "ratings": {
-                    "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
-                    "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
-                    "cryptocurrency": 0, "network": 0, "overall": 0
-                },
-                "ranks": {
-                    "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
-                    "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
-                    "cryptocurrency": 0, "network": 0, "overall": 0
-                }
-            }
-            m = members.find_one({'name': member_info['name']})
-            if not member.bot and m == None:
-                member_cnt += 1
-                members.update_one({"name": member.name}, {"$set": member_info}, upsert=True)
-                print("[+] Added member {} to database of {}".format(member, guild.name))
-            else:
-                print("[/] Member not added because member is either bot or already exists")
+            member_cnt += add_member(member, guild)
 
         # Set team info in server info db
-        team_info = {"name": str(guild.name), "guild id": str(guild.id),"num members": member_cnt}
-        serverdb["team info"][str(guild.name)].update_one({"name": str(guild.name)}, {"$set": team_info}, upsert=True)
+        team_info = {
+            "name": str(guild.name),"guild id": str(guild.id),
+            "num members": member_cnt, "num competitions": []
+        }
+        server = client[str(guild.name).replace(' ', '-')]
+        server["info"].update_one({"name": str(guild.name)}, {"$set": team_info}, upsert=True)
+        print("------------------------------------------------{}".format("-"*len(guild.name)))
 
 @bot.event # Displays error messages
 async def on_command_error(ctx, error):
@@ -79,16 +59,22 @@ async def on_command_error(ctx, error):
 async def on_member_join(member):
     print(f'{member} has joined the server')
     for guild in bot.guilds:
-        server = members[str(guild.id)]
-        member_info = {"name": member.name, "points": 0, "ctfs_competed": []}
-        if not member.bot:
-            server.update_one({"name": member.name}, {"$set": member_info}, upsert=True)
-            print("[+] Added member {} to database".format(member))
+        if member in guild.members:
+            cnt = add_member(member, guild)
+            if cnt == 1:
+                info = client[str(guild.name).replace(' ', '-')]['info']
+                info2 = members.find_one({"name": str(guild.name).replace(' ', '-')})
+                info2.update({"num members": info2["num members"] + 1})
+            return
 
 @bot.event # Removes existing member from data structures
 async def on_member_remove(member):
     print(f'{member} has left the server')
-    # Purge this member from the data structures
+    for guild in bot.guilds:
+        if member in guild.members:
+            members = client[str(guild.name).replace(' ', '-')]['members']
+            members.remove({"name": str(member)})
+            return
 
 @bot.event
 async def on_message(ctx):
@@ -111,19 +97,44 @@ async def help(ctx, page=None):
     else:
         emb = discord.Embed(description=help_info.help_page, colour=10181046)
         emb.set_author(name='CTFBot Help')
-
     await ctx.channel.send(embed=emb)
 
-@bot.command()
-async def testPoints(ctx):
-    message = "**Points:**\n```"
-    for m in points:
-        message += "{}: {}\n".format(m, points[m])
-    await ctx.send(message + "```")
+def add_member(member, guild):
+    server = client[str(guild.name).replace(' ', '-')]
+    members = server['members']
+    member_info = {
+        "name": member.name + '#' + member.discriminator,
+        "points": 0,
+        "ctfs_competed": [],
+        "aliases": [],
+        "ratings": {
+            "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
+            "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
+            "cryptocurrency": 0, "network": 0, "overall": 0
+        },
+        "ranks": {
+            "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
+            "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
+            "cryptocurrency": 0, "network": 0, "overall": 0
+        }
+    }
+    m = members.find_one({'name': member_info['name']})
+    if not member.bot and m == None:
+        members.update_one({"name": member.name}, {"$set": member_info}, upsert=True)
+        print("[+] Added member {} to database of {}".format(member, guild.name))
+        return 1
+    else:
+        if member.bot:
+            print("[/] Member {} not added - bot".format(member.name))
+        else:
+            print("[/] Member {} not added - already exists".format(member.name))
+    return 0
 
 ##################################### MAIN #####################################
-# Loads cog extentions and starts up the bot
-if __name__ == '__main__':
+if __name__ == '__main__': # Loads cog extentions and starts up the bot
+    print("\n|-----------------------|\n| Loaded Cogs:          |")
     for extension in extensions:
         bot.load_extension('cogs.' + extension)
+        print("|   - {}   {}|".format(extension.upper(), " "*(15-len(extension))))
+    print("|-----------------------|\n")
     bot.run(discord_token)
