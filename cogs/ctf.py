@@ -8,14 +8,12 @@ import traceback
 sys.path.append("..")
 from config_vars import *
 
-# Stores credentials locally (not in database)
-creds = {}
-
 #################################### METHODS ###################################
 def in_ctf_channel():
     async def tocheck(ctx):
         # A check for ctf context specific commands
-        if client[str(ctx.guild.name).replace(' ', '-')]['ctfs'].find_one({'name': str(ctx.message.channel)}):
+        if not str(ctx.channel.type) == "private" and \
+           client[str(ctx.guild.name).replace(' ', '-')]['ctfs'].find_one({'name': str(ctx.message.channel)}):
             return True
         else:
             await ctx.send("You must be in a created ctf channel to use ctf commands!")
@@ -99,6 +97,8 @@ class NonceNotFound(Exception):
 class CTF(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        # Stores credentials locally (not in database)
+        self.creds = {}
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -192,8 +192,9 @@ class CTF(commands.Cog):
 
     @ctf.command()
     async def setcreds(self, ctx, username, password, site, guild_name, channel):
-        if creds:
-            await ctx.send("Replacing **{}**'s creds".format(creds['user']))
+        if self.creds and self.creds[str(guild_name) + "." + str(channel)]:
+            await ctx.send("Replacing **{}**'s creds".format(self.creds[str(guild_name) + "." + str(channel)]['user']))
+
         if str(ctx.message.channel.type) == "private":
             channels = {}
             for g in self.bot.guilds:
@@ -206,12 +207,22 @@ class CTF(commands.Cog):
                     if h.name == channel:
                         channel_id = h.id
                 if not channel_id == 0:
-                    creds['user'] = username
-                    creds['pass'] = password
-                    creds['site'] = site
+                    self.creds[str(guild_name) + "." + str(channel)] = {
+                        "user": username,
+                        "pass": password,
+                        "site": site
+                    }
                     message = "CTF credentials set. \n**Username:**\t` {0} ` ".format(username) + \
                               "\n**Password:**\t` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
                     ch = self.bot.get_channel(channel_id)
+
+                    # Get rid of pins
+                    pinned = await ch.pins()
+                    for pin in pinned:
+                        print(pin)
+                        if "CTF credentials set." in pin.content:
+                            await pin.unpin()
+
                     msg = await ch.send(message)
                     await msg.pin()
                 else:
@@ -220,15 +231,21 @@ class CTF(commands.Cog):
                 await ctx.send("Guild is incorrect or doesn't exist.")
         else:
             await ctx.send("DM me to set the credentials")
+        print(self.creds)
+
 
     @staticmethod
     async def pull(self, ctx, url):
         try:
-            if creds.keys() == []:
+            if not self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]:
                 await ctx.send("Set credentials with `>ctf setcreds \"username\" \"password\" \"website\"`")
                 return
-
-            ctfd_challs = getChallenges(url, creds["user"], creds["pass"])
+            print("creds all good")
+            user = self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["user"]
+            password = self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["pass"]
+            print("before getChallenges")
+            ctfd_challs = getChallenges(url, user, password)
+            print("after getChallenges")
             server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
             ctf = server.find_one({'name': str(ctx.message.channel)})
 
@@ -256,7 +273,10 @@ class CTF(commands.Cog):
     @in_ctf_channel()
     async def challenges(self, ctx):
         print("Listing challenges for {}".format(ctx.guild.name))
-        CTF.pull(self, ctx, creds["site"])
+        print("before")
+        print(self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["site"])
+        CTF.pull(self, ctx, self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["site"])
+        print("after")
 
         ctf_challenge_list = []
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
