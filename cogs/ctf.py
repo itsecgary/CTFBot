@@ -4,6 +4,7 @@ import string
 import json
 import requests
 import sys
+import re
 import traceback
 from datetime import *
 from config_vars import *
@@ -195,20 +196,41 @@ class CTF(commands.Cog):
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     @commands.has_permissions(manage_channels=True)
     @ctf.command()
-    async def create(self, ctx, name):
+    async def create(self, ctx, link):
         servcat = "CTF"
         category = discord.utils.get(ctx.guild.categories, name=servcat)
         if category == None: # Checks if category exists, if it doesn't it will create it.
             await ctx.guild.create_category(name=servcat)
             category = discord.utils.get(ctx.guild.categories, name=servcat)
 
-        whitelist = set(string.ascii_letters + string.digits + ' ' + '-')
-        ctf_name = ''.join([ch for ch in name if ch in whitelist]).strip().replace(' ', '-').lower()
-        await ctx.guild.create_text_channel(name=ctf_name, category=category)
+        # Parse CTFTime Link
+        if link[-1] == "/": link = link[:-1]
+        event_id = link.split("/")[-1]
+        link = "https://ctftime.org/api/v1/events/{}/".format(event_id)
+        head = {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0'}
+
+        # Get and parse JSON data for competition
+        r_event = requests.get(link, headers=head)
+        event_json = r_event.json()
+        (ctf_start, ctf_end) = (event_json["start"].replace("T", " ").split("+", 1)[0] + " UTC", event_json["finish"].replace("T", " ").split("+", 1)[0] + " UTC")
+        (ctf_start, ctf_end) = (re.sub(":00 ", " ", ctf_start), re.sub(":00 ", " ", ctf_end))
+        (ctf_hours, ctf_days) = (str(event_json["duration"]["hours"]), str(event_json["duration"]["days"]))
+        ctf_info = {
+            "name": event_json["title"], "text_channel": event_json["title"],
+            "website": event_json["url"], "weight": event_json["weight"],
+            "description": event_json["description"], "start": ctf_start,
+            "end": ctf_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours")
+        }
+
+        # Update DB
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+        server.update({'name': ctf_info["name"]}, {"$set": ctf_info}, upsert=True)
+
+        # Discord server stuff
+        whitelist = set(string.ascii_letters + string.digits + ' ' + '-')
+        ctf_name = ''.join([ch for ch in ctf_info["name"] if ch in whitelist]).strip().replace(' ', '-').lower()
+        await ctx.guild.create_text_channel(name=ctf_name, category=category)
         await ctx.guild.create_role(name=ctf_name, mentionable=True)
-        ctf_info = {'name': ctf_name, "text_channel": ctf_name}
-        server.update({'name': ctf_name}, {"$set": ctf_info}, upsert=True)
         await ctx.message.add_reaction("✅")
 
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
