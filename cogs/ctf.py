@@ -6,10 +6,25 @@ import requests
 import sys
 import re
 import traceback
+from dateutil.parser import parse
 from datetime import *
 from config_vars import *
 sys.path.append("..")
 
+################################ DATA STRUCTURES ###############################
+chall_aliases = {
+    "crypto": ["crypto", "cryptography", "aes", "rsa", "encryption", "encoding", "cipher", "ciphers"],
+    "forensics": ["forensics", "stego", "steganography", "memory analysis"],
+    "misc": ["misc", "other", "miscellaneous", "trivia", "random"],
+    "osint": ["osint" "open source intelligence"],
+    "web": ["web", "web-exploitation", "web exploitation"],
+    "pwn-bin": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation"],
+    "reverse": ["reverse", "reversing", "re", "reverse engineering", "reverse-engineering"],
+    "htb": ["htb", "hackthebox", "hack the box", "try hack me", "tryhackme"],
+    "cryptocurrency": ["cryptocurrency", "etherium", "coin", "bitcoin", "blockchain", "secure contracts"],
+    "network": ["network", "networking", "network analysis", "wireshark", "rf", "pcap"],
+    "mobile": ["mobile", "android", "mobile security", "apk"]
+}
 
 #################################### METHODS ###################################
 def in_ctf_channel():
@@ -39,22 +54,24 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     if "Your username or password is incorrect" in r.text:
         raise InvalidCredentials("Invalid login credentials")
 
-    # Get challenge information
-    r_chals = s.get(f"{url}/api/v1/challenges")
-    all_challenges = r_chals.json()
-
-    # Get team solves
-    r_solves = s.get(f"{url}/api/v1/teams/me/solves")
-    team_solves = r_solves.json()
-    if 'success' not in team_solves:
-        # ctf is user based.  There is a flag on CTFd for this (userMode), but it is not present in all versions, this way seems to be.
-        r_solves = s.get(f"{url}/api/v1/users/me/solves")
-        team_solves = r_solves.json()
+    # Get information from API
+    all_challenges = s.get(f"{url}/api/v1/challenges").json()
+    team_info = s.get(f"{url}/api/v1/teams/me").json()
+    team_solves = s.get(f"{url}/api/v1/teams/me/solves").json()
+    if 'success' not in team_solves: # ctf is user based
+        team_info = s.get(f"{url}/api/v1/users/me").json()
+        team_solves = s.get(f"{url}/api/v1/users/me/solves").json()
 
     # Variables
     challenges = {}
-    total_points = 0
+    point_info = {
+        "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
+        "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
+        "cryptocurrency": 0, "network": 0, "mobile": 0, "total": 0
+    }
+    solved_points = 0
     server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+    members = server.find_one({'name': str(ctx.message.channel)})['members']
 
     # Add all challenges
     if all_challenges['success'] == True:
@@ -62,7 +79,14 @@ def get_challenges_CTFd(ctx, url, username, password, s):
             cat = chall['category']
             challname = chall['name']
             value = chall['value']
-            total_points += value
+            point_info['total'] += value
+
+            # Add points for category
+            for real_chall_name, aliases in chall_aliases.items():
+                if cat.lower() in aliases:
+                    point_info[real_chall_name] += value
+                    break
+
             chall_entry = {'name': challname, 'solved': False, 'solver': '', 'points': value}
             if cat in challenges.keys():
                 challenges[cat].append(chall_entry)
@@ -71,10 +95,7 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     else:
         raise Exception("Error making request")
 
-    # Add total points to db
-    ctf_info = {'name': str(ctx.message.channel), 'total points': total_points}
-    server.update({'name': str(ctx.message.channel)}, {"$unset": {'total points': ""}}, upsert=True)
-    server.update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
+    print(point_info)
 
     # Add team solves
     if team_solves['success'] == True:
@@ -83,19 +104,35 @@ def get_challenges_CTFd(ctx, url, username, password, s):
             cat = solve['challenge']['category']
             challname = solve['challenge']['name']
             solver = solve['user']
+            value = solve['challenge']['value']
+            solved_points += value
 
             # Get user info
             r_user = s.get(f"{url}/api/v1/users/{solver}")
             user_profile = r_user.json()
             solver = user_profile['data']['name']
-            # NEED TO SEARCH THE ALIASES
 
-            # Change challenge solved info if solved by team
+            # Add points for member who solved it for specific category
+            for name, attr in members.items():
+                if attr["alias"] == solver:
+                    for real_chall_name, aliases in chall_aliases.items():
+                        if cat.lower() in aliases:
+                            members[name][real_chall_name] += value
+                            break
+
+            # Change challenge_solved info if solved by team
             for i in range(len(challenges[cat])):
                 if challname == challenges[cat][i]['name']:
                     challenges[cat][i]['solved'] = True
                     challenges[cat][i]['solver'] = solver
 
+    # Add total points to db
+    rank = ""
+    if "place" in team_info['data'].keys(): rank += team_info['data']['place']
+    ctf_info = {'points': point_info, 'solved points': solved_points,
+                'rank': rank, 'members': members}
+    #server.update({'name': str(ctx.message.channel)}, {"$unset": {'total points': ""}}, upsert=True)
+    server.update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
     return challenges
 
 def get_challenges_rCTF(ctx, url, token, s):
@@ -212,14 +249,18 @@ class CTF(commands.Cog):
         # Get and parse JSON data for competition
         r_event = requests.get(link, headers=head)
         event_json = r_event.json()
-        (ctf_start, ctf_end) = (event_json["start"].replace("T", " ").split("+", 1)[0] + " UTC", event_json["finish"].replace("T", " ").split("+", 1)[0] + " UTC")
-        (ctf_start, ctf_end) = (re.sub(":00 ", " ", ctf_start), re.sub(":00 ", " ", ctf_end))
+
+        unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
+        (ctf_start, ctf_end) = (parse(event_json['start'].replace('T', ' ').split('+', 1)[0]), parse(event_json['finish'].replace('T', ' ').split('+', 1)[0]))
+        (unix_start, unix_end) = (int(ctf_start.replace(tzinfo=timezone.utc).timestamp()), int(ctf_end.replace(tzinfo=timezone.utc).timestamp()))
         (ctf_hours, ctf_days) = (str(event_json["duration"]["hours"]), str(event_json["duration"]["days"]))
         ctf_info = {
-            "name": event_json["title"], "text_channel": event_json["title"],
+            "name": event_json["title"].replace(' ', '-').lower(),
+            "text_channel": event_json["title"].replace(' ', '-').lower(),
             "website": event_json["url"], "weight": event_json["weight"],
-            "description": event_json["description"], "start": ctf_start,
-            "end": ctf_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours")
+            "description": event_json["description"], "start": unix_start,
+            "end": unix_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours"),
+            "members": {}
         }
 
         # Update DB
@@ -228,7 +269,7 @@ class CTF(commands.Cog):
 
         # Discord server stuff
         whitelist = set(string.ascii_letters + string.digits + ' ' + '-')
-        ctf_name = ''.join([ch for ch in ctf_info["name"] if ch in whitelist]).strip().replace(' ', '-').lower()
+        ctf_name = ctf_info["name"]
         await ctx.guild.create_text_channel(name=ctf_name, category=category)
         await ctx.guild.create_role(name=ctf_name, mentionable=True)
         await ctx.message.add_reaction("✅")
@@ -273,17 +314,18 @@ class CTF(commands.Cog):
         await user.add_roles(role)
         await ctx.send(f"{user} has joined the {str(ctx.message.channel)} team!")
 
-        server = client[str(ctx.guild.name).replace(' ', '-')]['members']
-        member = server.find_one({'name': str(user)})
+        # Get DB
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+        ctf = server.find_one({'name': str(ctx.message.channel)})
 
-        arr = member['aliases']
-        if arr == []:
-            arr = [alias]
-        else:
-            arr.append(alias)
-
-        member_info = {'name': str(user), 'aliases': arr}
-        server.update({'name': str(user)}, {"$set": member_info}, upsert=True)
+        # Add member to CTF DB along with alias in order for point processing
+        members = ctf['members']
+        members[str(user)] = {
+            "alias": alias, "crypto": 0, "forensics": 0, "misc": 0, "osint": 0, "web": 0,
+            "pwn-bin": 0, "reverse": 0, "htb": 0, "cryptocurrency": 0, "network": 0, "mobile": 0
+        }
+        server.update({'name': str(ctx.message.channel)}, {"$unset": {'members': ""}}, upsert=True)
+        server.update({'name': str(ctx.message.channel)}, {"$set": {'members': members}}, upsert=True)
 
     @commands.bot_has_permissions(manage_roles=True)
     @ctf.command()
@@ -354,9 +396,8 @@ class CTF(commands.Cog):
             await ctx.send("DM me to set the credentials")
 
     @staticmethod
-    async def pull(self, ctx, url2):
+    async def pull(self, ctx, url):
         fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
-        url = url2
         try:
             if not self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]:
                 await ctx.send("Set credentials with `>ctf setcreds ...`")
@@ -373,9 +414,10 @@ class CTF(commands.Cog):
                 token = self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["token"]
                 ctfd_challs = get_challenges_rCTF(ctx, url, token, s)
             elif fingerprints[2] in r.text:
-                ctfd_challs = 0 # TODO - Implement CTFx functionality
+                # TODO - Implement CTFx functionality
+                raise InvalidProvider("CTFx functionality coming soon - cannot pull challenges.")
             else:
-                raise InvalidProvider("CTF is not based on CTFd, CTFx, or rCTF - cannot pull challenges.")
+                raise InvalidProvider("CTF is not based on CTFd or rCTF - cannot pull challenges.")
 
             ctf_info = {'name': str(ctx.message.channel), 'challenges': ctfd_challs}
             server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
@@ -388,18 +430,28 @@ class CTF(commands.Cog):
         except NonceNotFound as nnfm:
             await ctx.send(nnfm)
         except requests.exceptions.MissingSchema:
-            await ctx.send("Supply a valid url in the form: `http(s)://ctfd.url`")
+            await ctx.send("Supply a valid url in the form: `http(s)://ctf.url`")
         except:
             traceback.print_exc()
 
     @ctf.command()
     @in_ctf_channel()
-    async def challenges(self, ctx):
-        await CTF.pull(self, ctx, self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["site"])
-
+    async def challs(self, ctx):
         ctf_challenge_list = []
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         ctf = server.find_one({'name': str(ctx.message.channel)})
+        unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
+
+        if not ctf:
+            await ctx.send("Please create a separate channel for this CTF")
+            return
+        elif (ctf['start'] > unix_now):
+            await ctx.send("CTF has not started! Wait until {}".format(ctf['start']))
+            return
+        elif (ctf['end'] < unix_now):
+            await ctx.send("CTF is over, but I still might have chall info.")
+
+        await CTF.pull(self, ctx, self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["site"])
         try:
             ctf_challenge_list = []
             message = ""
