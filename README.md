@@ -35,7 +35,7 @@ value for each user:
 
 <img src="images/points_system_challs.PNG" alt="Point System Formula">
 
-<img src="images/points_system_challs2.PNG" alt="Point System Formula">
+<img src="images/points_system_challs2.PNG" alt="Point System Overall Formula">
 
 For each competition, the values for each category will be averages to make it equal.
 To calculate the **Overall** value of a member, the bot will take the average of
