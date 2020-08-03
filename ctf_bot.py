@@ -8,7 +8,7 @@ import help_info
 ################################ DATA STRUCTURES ###############################
 bot = commands.Bot(command_prefix = '>')
 bot.remove_command('help')
-extensions = ['competitions', 'rankings', 'ctftime', 'ctf']
+extensions = ['rankings', 'ctftime', 'ctf']
 
 #################################### EVENTS ####################################
 @bot.event # Show banner and add members to respective guilds in db
@@ -109,12 +109,12 @@ def add_member(member, guild):
         "ratings": {
             "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
             "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
-            "cryptocurrency": 0, "network": 0, "overall": 0
+            "cryptocurrency": 0, "network": 0, "mobile": 0, "overall": 0
         },
         "ranks": {
             "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
             "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
-            "cryptocurrency": 0, "network": 0, "overall": 0
+            "cryptocurrency": 0, "network": 0, "mobile": 0, "overall": 0
         }
     }
     m = members.find_one({'name': member_info['name']})

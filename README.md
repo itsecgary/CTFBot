@@ -12,7 +12,7 @@ Future Platform Integration:
 - CTFx
 - rCTF
 - XCTF
-- FacebookCTF
+- redCTF
 
 ## Point System
 The point system we have developed aims to be a reasonable system to grade a
