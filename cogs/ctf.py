@@ -16,10 +16,10 @@ sys.path.append("..")
 chall_aliases = {
     "crypto": ["crypto", "cryptography", "aes", "rsa", "encryption", "encoding", "cipher", "ciphers"],
     "forensics": ["forensics", "stego", "steganography", "memory analysis"],
-    "misc": ["misc", "other", "miscellaneous", "trivia", "random"],
+    "misc": ["misc", "other", "miscellaneous", "trivia", "random", "warmup"],
     "osint": ["osint" "open source intelligence"],
     "web": ["web", "web-exploitation", "web exploitation"],
-    "pwn-bin": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation"],
+    "pwn-bin": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation", "kernel exploitation"],
     "reverse": ["reverse", "reversing", "re", "reverse engineering", "reverse-engineering"],
     "htb": ["htb", "hackthebox", "hack the box", "try hack me", "tryhackme"],
     "cryptocurrency": ["cryptocurrency", "etherium", "coin", "bitcoin", "blockchain", "secure contracts"],
@@ -179,7 +179,6 @@ def get_challenges_CTFd(ctx, url, username, password, s):
                 if attr["alias"] == solver:
                     for real_chall_name, aliases in chall_aliases.items():
                         if cat.lower() in aliases:
-                            print("{} added to {} for {}".format(value, attr[real_chall_name], name))
                             members[name][real_chall_name] += value
                             break
 
@@ -275,7 +274,6 @@ class CTF(commands.Cog):
 
     @tasks.loop(minutes=2.0)
     async def get_info(self):
-        print("Running Task Get_Info")
         unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
 
         # Get chall info for each running competition
@@ -299,7 +297,6 @@ class CTF(commands.Cog):
                     self.current.remove(ctf['name'])
                     display_stats(server, ctf)
                     calculate(str(guild.name), ctf)
-        print("end")
 
     @commands.group()
     async def ctf(self, ctx):
