@@ -14,29 +14,6 @@ num_ctfs = {}
 ranking = []
 
 #################################### METHODS ###################################
-def getPoints(url, username, password):
-    fingerprint = "Powered by CTFd"
-    s = requests.session()
-    if url[-1] == "/": url = url[:-1]
-    r = s.get(f"{url}/login")
-    if fingerprint not in r.text:
-        raise InvalidProvider("CTF is not based on CTFd, cannot pull challenges.")
-    else:
-        try:
-            nonce = r.text.split("csrfNonce': \"")[1].split('"')[0]
-        except: # sometimes errors happen here, my theory is that it is different versions of CTFd
-            try:
-                nonce = r.text.split("name=\"nonce\" value=\"")[1].split('">')[0]
-            except:
-                raise NonceNotFound("Was not able to find the nonce token from login, please >report this along with the ctf url.")
-        r = s.post(f"{url}/login", data={"name": username, "password": password, "nonce": nonce})
-        if "Your username or password is incorrect" in r.text:
-            raise InvalidCredentials("Invalid login credentials")
-
-    # Get point information
-    r_chals = s.get(f"{url}/api/v1/challenges")
-    all_challenges = r_chals.json()
-
 class Leaderboard(commands.Cog):
 
     def __init__(self, bot):
