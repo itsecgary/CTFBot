@@ -1,8 +1,10 @@
 leaderboard_help = '''
-`>rank`
-display the user's rank
-`>top10`
-show the top 10 members and their points
+`>rank me`
+display the user's ranking and point info
+`>rank top5`
+show the top 5 members and their overall score
+`>rank top5 [category]`
+show the top 5 members and their score for specified category
 '''
 
 ctf_help = '''
@@ -13,7 +15,7 @@ user \"joins\" the ctf team for the specified channel with the *alias* being the
 the *alias* must be exactly what it is on the CTF platform
 `>ctf leave`
 removes channel role from user
-`>ctf setcreds [ctfd username] [password] [https://ctfd.url] "[server]" [channel]`
+`>ctf setcreds [ctfd username] [password] [https://ctf.url] "[server]" [channel]`
 pin the message of ctf credentials, only runnable through DM with bot in order to preserve privacy
 `>ctf challs`
 get a list of the challenges in the ctf, and their statuses. *Updates DB every time this is called*
@@ -35,7 +37,7 @@ display the leaderboards from ctftime from a certain year
 '''
 
 help_page = '''
-`>help leaderboard`
+`>help rank`
 info for all leaderboard commands
 `>help ctftime`
 info for all ctftime commands

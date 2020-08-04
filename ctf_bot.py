@@ -50,7 +50,7 @@ async def on_command_error(ctx, error):
         msg += "I don't have sufficient permissions!\n"
     if msg == "":
         if not isinstance(error, commands.CheckFailure):
-            msg += "Invalid command.\n"
+            msg += "Something went wrong.\n"
             print("error not caught")
             print(error)
             await ctx.send(msg)
