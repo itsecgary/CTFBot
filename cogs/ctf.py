@@ -78,7 +78,7 @@ def calculate(server_name, ctf_name):
 
         # Update member's DB and set boolean to True
         server['members'].update({'name': name}, {"$set": {'overall': overall, 'ratings': member['ratings']}}, upsert=True)
-        server['ctfs'].update({{'name': ctf_name}, {"$set": {'calculated?': True}}})
+        server['ctfs'].update({'name': ctf_name}, {"$set": {'calculated?': True}}, upsert=True)
 
     # edit the rankings
     already_got = []
@@ -542,13 +542,13 @@ class CTF(commands.Cog):
         elif (ctf['end'] < unix_now):
             await ctx.send("CTF is over, but I still might have chall info.")
             await CTF.pull(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
-            tm.sleep(0.01)
-            if not ctf['calculated?']:
+            if not ctf['calculated?']: # we only want to calculate once
                 calculate(str(ctx.guild.name), str(ctx.message.channel))
         else:
             await CTF.pull(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
-            tm.sleep(0.01)
 
+
+        ctf = server.find_one({'name': str(ctx.message.channel)}) # update local hash
         try:
             ctf_challenge_list = []
             message = ""
