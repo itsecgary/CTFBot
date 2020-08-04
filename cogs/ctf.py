@@ -6,6 +6,7 @@ import requests
 import sys
 import re
 import traceback
+import time as tm
 from dateutil.parser import parse
 from datetime import *
 from config_vars import *
@@ -38,6 +39,64 @@ def in_ctf_channel():
             return False
 
     return commands.check(tocheck)
+
+def display_stats(server, ctf):
+    # Show place and points
+    # Show member breakdown of solves
+    print("Need Functionality")
+
+def calculate(server_name, ctf_name):
+    # Fetch Databases
+    server = client[server_name.replace(' ', '-')]
+    info_db = server['info']
+    members = server['members']
+    ctf = server['ctfs'].find_one({'name': ctf_name})
+    num_members = len(ctf['members'].keys())
+
+    # Calculate scores for each member of competition
+    for name, points in ctf['members'].items():
+        # Calculate each category
+        member = members.find_one({'name': name})
+        for cat, val in points.items():
+            if not (cat == "alias"):
+                solved_p = val
+                total_p = ctf['points'][cat]
+                if total_p == 0:
+                    score = 0
+                else:
+                    score = 10*(solved_p/total_p)*(1 + ctf['weight']/100)*(1 + (9 - num_members)/10)
+                    curr_score = member['ratings'][cat] * (len(member['ctfs_competed']) - 1)
+                    score = ((score + curr_score)/len(member['ctfs_competed']))
+                    if not score == 0: score = score + (len(member['ctfs_competed'])/50)
+                member['ratings'][cat] = score
+
+        # Calculate overall
+        overall = 0
+        for cat, val in member['ratings'].items():
+            overall += val
+        overall = overall/len(member['ratings'].values())
+
+        # Update member's DB and set boolean to True
+        server['members'].update({'name': name}, {"$set": {'overall': overall, 'ratings': member['ratings']}}, upsert=True)
+        server['ctfs'].update({{'name': ctf_name}, {"$set": {'calculated?': True}}})
+
+    # edit the rankings
+    already_got = []
+    rankings = []
+    while (len(rankings) < members.count()):
+        highest = -1
+        p = None
+        for person in members.find():
+            if person['overall'] > highest and not person['name'] in already_got:
+                highest = person['overall']
+                p = person
+        already_got.append(p['name'])
+        rankings.append({'name': p['name'], 'score': p['overall']})
+
+    info_db.update({'name': server_name}, {'$set': {'ranking': rankings}})
+
+    # edit category ranks for each user
+    print("Need Functionality")
 
 def get_challenges_CTFd(ctx, url, username, password, s):
     r = s.get(f"{url}/login")
@@ -73,6 +132,11 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
     members = server.find_one({'name': str(ctx.message.channel)})['members']
 
+    # Reset points to 0
+    for k, v in members.items():
+        for cat, _ in v.items():
+            if not cat == "alias": members[k][cat] = 0
+
     # Add all challenges
     if all_challenges['success'] == True:
         for chall in all_challenges['data']:
@@ -95,8 +159,6 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     else:
         raise Exception("Error making request")
 
-    print(point_info)
-
     # Add team solves
     if team_solves['success'] == True:
         for solve in team_solves['data']:
@@ -117,6 +179,7 @@ def get_challenges_CTFd(ctx, url, username, password, s):
                 if attr["alias"] == solver:
                     for real_chall_name, aliases in chall_aliases.items():
                         if cat.lower() in aliases:
+                            print("{} added to {} for {}".format(value, attr[real_chall_name], name))
                             members[name][real_chall_name] += value
                             break
 
@@ -210,19 +273,33 @@ class CTF(commands.Cog):
         self.current = [] # Stores started ctfs
         self.get_info.start()
 
-    @tasks.loop(seconds=10.0)
+    @tasks.loop(minutes=2.0)
     async def get_info(self):
-        #print("Running Task Get_Info")
-        now = datetime.utcnow()
-        unix_now = int(now.replace(tzinfo=timezone.utc).timestamp())
-        running = False
+        print("Running Task Get_Info")
+        unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
 
-        for ctf in ctfs.find():
-            if ctf['start'] < unix_now and ctf['end'] > unix_now: # Check if the ctf is running
-                running = True
-                if not ctf['name'] in self.current: # we only want to do this once
-                    self.current.append(ctf['name'])
-                    # GET INFO
+        # Get chall info for each running competition
+        for guild in self.bot.guilds:
+            server = client[str(guild.name).replace(' ', '-')]
+            for ctf in server['ctfs'].find():
+                # Pull challenges at very START and END of competition
+                if (unix_now - ctf['start'] < 122) or \
+                ((ctf['end'] - unix_now > 0) and (ctf['end'] - unix_now < 122)):
+                    # Add name to current array
+                    if not ctf['name'] in self.current:
+                        self.current.append(ctf['name'])
+
+                    # Pull challenge info if creds exist for it
+                    if str(guild.name).replace(' ', '-') + "." + str(ctf) in self.creds:
+                        await CTF.pull(self, ctx, self.creds[str(guild.name).replace(' ', '-') + "." + str(ctf)]["site"])
+                        print("[{}] Successfully pulled challenge info for {}".format(guild.name, ctf))
+
+                # Right after competition ends
+                elif unix_now - ctf['end'] < 122:
+                    self.current.remove(ctf['name'])
+                    display_stats(server, ctf)
+                    calculate(str(guild.name), ctf)
+        print("end")
 
     @commands.group()
     async def ctf(self, ctx):
@@ -260,12 +337,18 @@ class CTF(commands.Cog):
             "website": event_json["url"], "weight": event_json["weight"],
             "description": event_json["description"], "start": unix_start,
             "end": unix_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours"),
-            "members": {}
+            "members": {}, "calculated?": False
         }
 
-        # Update DB
+        # Update CTF DB for guild
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         server.update({'name': ctf_info["name"]}, {"$set": ctf_info}, upsert=True)
+
+        # Update Guild Info
+        info = client[str(ctx.guild.name).replace(' ', '-')]['info']
+        num_mems = info.find_one({'name': str(ctx.guild.name)})['num members'] + 1
+        comp_arr = info.find_one({'name': str(ctx.guild.name)})['competitions'].append(ctf_info["name"])
+        info.update({'name': str(ctx.guild.name)}, {"$set": {'num members': num_mems, 'num competitions': comp_arr}}, upsert=True)
 
         # Discord server stuff
         whitelist = set(string.ascii_letters + string.digits + ' ' + '-')
@@ -316,6 +399,7 @@ class CTF(commands.Cog):
 
         # Get DB
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+        mems = client[str(ctx.guild.name).replace(' ', '-')]['members']
         ctf = server.find_one({'name': str(ctx.message.channel)})
 
         # Add member to CTF DB along with alias in order for point processing
@@ -326,6 +410,12 @@ class CTF(commands.Cog):
         }
         server.update({'name': str(ctx.message.channel)}, {"$unset": {'members': ""}}, upsert=True)
         server.update({'name': str(ctx.message.channel)}, {"$set": {'members': members}}, upsert=True)
+        arr = mems.find_one({'name': str(user)})['ctfs_competed']
+        if arr == []:
+            arr = [str(ctx.message.channel)]
+        else:
+            arr.append(str(ctx.message.channel))
+        mems.update({'name': str(user)}, {"$set": {'ctfs_competed': arr}}, upsert=True)
 
     @commands.bot_has_permissions(manage_roles=True)
     @ctf.command()
@@ -345,8 +435,9 @@ class CTF(commands.Cog):
             password = None
 
         replace_msg = ""
-        if self.creds and (str(guild_name) + "." + str(channel)) in self.creds:
-            replace_msg += "Replacing **{}**'s creds".format(self.creds[str(guild_name) + "." + str(channel)]['user'])
+        if self.creds and (str(guild_name).replace(' ', '-') + "." + str(channel)) in self.creds:
+            name = self.creds[str(guild_name).replace(' ', '-') + "." + str(channel)]['user']
+            replace_msg += "Replacing **{}**'s creds".format(name)
 
         if str(ctx.message.channel.type) == "private":
             channels = {}
@@ -361,14 +452,14 @@ class CTF(commands.Cog):
                         channel_id = h.id
                 if not channel_id == 0:
                     if password == None:
-                        self.creds[str(guild_name) + "." + str(channel)] = {
+                        self.creds[str(guild_name).replace(' ', '-') + "." + str(channel)] = {
                             "token": username,
                             "site": site
                         }
                         message = "CTF credentials set. \n**Token:**\t ".format(username) + \
                               "` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
                     else:
-                        self.creds[str(guild_name) + "." + str(channel)] = {
+                        self.creds[str(guild_name).replace(' ', '-') + "." + str(channel)] = {
                             "user": username,
                             "pass": password,
                             "site": site
@@ -399,7 +490,7 @@ class CTF(commands.Cog):
     async def pull(self, ctx, url):
         fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
         try:
-            if not self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]:
+            if not self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]:
                 await ctx.send("Set credentials with `>ctf setcreds ...`")
                 return
 
@@ -407,11 +498,11 @@ class CTF(commands.Cog):
             s = requests.session()
             r = s.get("{}/login".format(url))
             if fingerprints[0] in r.text:
-                user = self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["user"]
-                password = self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["pass"]
+                user = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["user"]
+                password = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["pass"]
                 ctfd_challs = get_challenges_CTFd(ctx, url, user, password, s)
             elif fingerprints[1] in r.text:
-                token = self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["token"]
+                token = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["token"]
                 ctfd_challs = get_challenges_rCTF(ctx, url, token, s)
             elif fingerprints[2] in r.text:
                 # TODO - Implement CTFx functionality
@@ -450,8 +541,14 @@ class CTF(commands.Cog):
             return
         elif (ctf['end'] < unix_now):
             await ctx.send("CTF is over, but I still might have chall info.")
+            await CTF.pull(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
+            tm.sleep(0.01)
+            if not ctf['calculated?']:
+                calculate(str(ctx.guild.name), str(ctx.message.channel))
+        else:
+            await CTF.pull(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
+            tm.sleep(0.01)
 
-        await CTF.pull(self, ctx, self.creds[str(ctx.guild.name) + "." + str(ctx.message.channel)]["site"])
         try:
             ctf_challenge_list = []
             message = ""
