@@ -4,6 +4,7 @@ from discord.ext import tasks, commands
 from datetime import *
 from dateutil.parser import parse # pip install python-dateutil
 import requests
+import help_info
 from colorama import Fore, Style
 import sys
 sys.path.append("..")
@@ -80,9 +81,7 @@ class CtfTime(commands.Cog):
     @commands.group()
     async def ctftime(self, ctx):
         if ctx.invoked_subcommand is None:
-            # If the subcommand passed does not exist, its type is None
-            ctftime_commands = list(set([c.qualified_name for c in CtfTime.walk_commands(self)][1:]))
-            await ctx.send(f"Current ctftime commands are: {', '.join(ctftime_commands)}")
+            await ctx.channel.send("Invalid command. Run `>help ctftime` for information on **ctftime** commands.")
 
     @ctftime.command()
     async def current(self, ctx):

@@ -93,9 +93,9 @@ async def help(ctx, page=None):
     elif page == 'ctf':
         emb = discord.Embed(description=help_info.ctf_help, colour=10181046)
         emb.set_author(name='CTF Help')
-    elif page == 'leaderboard':
+    elif page == 'rank':
         emb = discord.Embed(description=help_info.leaderboard_help, colour=10181046)
-        emb.set_author(name='Leaderboard Help')
+        emb.set_author(name='Rank Help')
     else:
         emb = discord.Embed(description=help_info.help_page, colour=10181046)
         emb.set_author(name='CTFBot Help')

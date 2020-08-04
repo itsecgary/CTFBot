@@ -4,6 +4,7 @@ import string
 import json
 import requests
 import sys
+import help_info
 import traceback
 sys.path.append("..")
 from config_vars import *
@@ -13,7 +14,7 @@ points = {}
 num_ctfs = {}
 ranking = []
 
-#################################### METHODS ###################################
+#################################### CLASSES ###################################
 class Leaderboard(commands.Cog):
 
     def __init__(self, bot):
@@ -22,16 +23,33 @@ class Leaderboard(commands.Cog):
     @commands.group()
     async def rank(self, ctx):
         if ctx.invoked_subcommand is None:
-            l_commands = list(set([c.qualified_name for c in Leaderboard.walk_commands(self)][1:]))
-            await ctx.send("Current rank commands are: \n```\n{0}```".format('\n'.join(l_commands)))
+            await ctx.channel.send("Invalid command. Run `>help rank` for information on **rank** commands.")
 
     @rank.command()
     async def me(self, ctx):
-        print('Need Functionality Here')
+        name = ctx.message.author
+        server = client[str(ctx.guild.name).replace(' ', '-')]
+        member = server['members'].find_one({'name': str(name)})
+
+        count = 1
+        for r in server['info'].find_one({'name': str(ctx.guild.name)})['ranking']:
+            if r['name'] == str(name):
+                break
+            count += 1
+
+        # Format info
+        message = "**# of competitions:** {}\n\n".format(len(member['ctfs_competed']))
+        message += "**Overall**: {} - *({})*\n".format(round(member['overall'],3), count)
+        for cat, val in member['ratings'].items():
+            message += "**{}**: {} *({})*\n".format(cat, round(val, 3), " ")
+
+        # Send it
+        emb = discord.Embed(description=message, colour=1752220)
+        emb.set_author(name="{}'s CTF Profile'\n".format(str(name).split('#')[0]))
+        await ctx.channel.send(embed=emb)
 
     @rank.command()
     async def top5(self, ctx, cat=None):
-        user = ctx.message.author
         server = client[str(ctx.guild.name).replace(' ', '-')]
         info = server['info'].find_one({'name': str(ctx.guild.name)})
         if not cat is None:

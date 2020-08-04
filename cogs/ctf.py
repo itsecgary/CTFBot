@@ -6,6 +6,7 @@ import requests
 import sys
 import re
 import traceback
+import help_info
 import time as tm
 from dateutil.parser import parse
 from datetime import *
@@ -316,8 +317,7 @@ class CTF(commands.Cog):
     @commands.group()
     async def ctf(self, ctx):
         if ctx.invoked_subcommand is None:
-            ctf_commands = list(set([c.qualified_name for c in CTF.walk_commands(self)][1:]))
-            await ctx.send("Current ctf commands are: \n```\n{0}```".format('\n'.join(ctf_commands)))
+            await ctx.channel.send("Invalid command. Run `>ctf rank` for information on **ctf** commands.")
 
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     @commands.has_permissions(manage_channels=True)
