@@ -40,6 +40,7 @@ def in_ctf_channel():
 
     return commands.check(tocheck)
 
+# TODO
 def display_stats(server, ctf):
     # Show place and points
     # Show member breakdown of solves
@@ -57,6 +58,7 @@ def calculate(server_name, ctf_name):
     for name, points in ctf['members'].items():
         # Calculate each category
         member = members.find_one({'name': name})
+        length = len(member['ctfs_competed'])
         for cat, val in points.items():
             if not (cat == "alias"):
                 solved_p = val
@@ -65,10 +67,17 @@ def calculate(server_name, ctf_name):
                     score = 0
                 else:
                     score = 10*(solved_p/total_p)*(1 + ctf['weight']/100)*(1 + (9 - num_members)/10)
-                    curr_score = member['ratings'][cat] * (len(member['ctfs_competed']) - 1)
-                    score = ((score + curr_score)/len(member['ctfs_competed']))
-                    if not score == 0: score = score + (len(member['ctfs_competed'])/50)
+                    curr_score = member['ratings'][cat] * length
+                    if curr_score == 0 and not length == 0: score = ((score + curr_score)/length)
+                    if not score == 0: score = score + ((length + 1)/50)
                 member['ratings'][cat] = score
+
+        # Add CTF to competed CTFs
+        arr = member['ctfs_competed']
+        if arr == []:
+            arr = [ctf_name]
+        else:
+            arr.append(ctf_name)
 
         # Calculate overall
         overall = 0
@@ -77,7 +86,7 @@ def calculate(server_name, ctf_name):
         overall = overall/len(member['ratings'].values())
 
         # Update member's DB and set boolean to True
-        server['members'].update({'name': name}, {"$set": {'overall': overall, 'ratings': member['ratings']}}, upsert=True)
+        server['members'].update({'name': name}, {"$set": {'overall': overall, 'ratings': member['ratings'], 'ctfs_competed': arr}}, upsert=True)
         server['ctfs'].update({'name': ctf_name}, {"$set": {'calculated?': True}}, upsert=True)
 
     # edit the rankings
@@ -93,7 +102,13 @@ def calculate(server_name, ctf_name):
         already_got.append(p['name'])
         rankings.append({'name': p['name'], 'score': p['overall']})
 
-    info_db.update({'name': server_name}, {'$set': {'ranking': rankings}})
+    # Updtae Guild Information
+    comp_arr = info_db.find_one({'name': server_name})['competitions']
+    if comp_arr == []:
+        comp_arr = [ctf_name]
+    else:
+        comp_arr.append(ctf_name)
+    info_db.update({'name': server_name}, {"$set": {'ranking': rankings, 'competitions': comp_arr, 'num competitions': len(comp_arr)}}, upsert=True)
 
     # edit category ranks for each user
     print("Need Functionality")
@@ -341,12 +356,6 @@ class CTF(commands.Cog):
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         server.update({'name': ctf_info["name"]}, {"$set": ctf_info}, upsert=True)
 
-        # Update Guild Info
-        info = client[str(ctx.guild.name).replace(' ', '-')]['info']
-        num_mems = info.find_one({'name': str(ctx.guild.name)})['num members'] + 1
-        comp_arr = info.find_one({'name': str(ctx.guild.name)})['competitions'].append(ctf_info["name"])
-        info.update({'name': str(ctx.guild.name)}, {"$set": {'num members': num_mems, 'num competitions': comp_arr}}, upsert=True)
-
         # Discord server stuff
         whitelist = set(string.ascii_letters + string.digits + ' ' + '-')
         ctf_name = ctf_info["name"]
@@ -407,12 +416,6 @@ class CTF(commands.Cog):
         }
         server.update({'name': str(ctx.message.channel)}, {"$unset": {'members': ""}}, upsert=True)
         server.update({'name': str(ctx.message.channel)}, {"$set": {'members': members}}, upsert=True)
-        arr = mems.find_one({'name': str(user)})['ctfs_competed']
-        if arr == []:
-            arr = [str(ctx.message.channel)]
-        else:
-            arr.append(str(ctx.message.channel))
-        mems.update({'name': str(user)}, {"$set": {'ctfs_competed': arr}}, upsert=True)
 
     @commands.bot_has_permissions(manage_roles=True)
     @ctf.command()

@@ -28,13 +28,14 @@ async def on_ready():
             if not member.bot: member_cnt += 1
 
         # Set team info in server info db
-        team_info = {
-            "name": str(guild.name),"guild id": str(guild.id),
-            "num members": member_cnt, "competitions": [],
-            "num competitions": 0, "ranking": []
-        }
         server = client[str(guild.name).replace(' ', '-')]
-        server["info"].update_one({"name": str(guild.name)}, {"$set": team_info}, upsert=True)
+        if not server['info'].find_one({'name': str(guild.name)}):
+            team_info = {
+                "name": str(guild.name),"guild id": str(guild.id),
+                "num members": member_cnt, "competitions": [],
+                "num competitions": 0, "ranking": []
+            }
+            server["info"].update_one({"name": str(guild.name)}, {"$set": team_info}, upsert=True)
         print("------------------------------------------------{}".format("-"*len(guild.name)))
 
 @bot.event # Displays error messages
@@ -107,7 +108,6 @@ def add_member(member, guild):
         "name": member.name + '#' + member.discriminator,
         "overall": 0,
         "ctfs_competed": [],
-        "aliases": [],
         "ratings": {
             "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
             "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
