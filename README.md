@@ -16,16 +16,17 @@ Future Platform Integration:
 
 ## Functionality
 There are three types of command groups for CTFBot:
+
 <img src="images/help.PNG" alt="Help Info">
 
-**CTFTime Commands:**
+#### CTFTime Commands:
 
 <img src="images/ctftime_help.PNG" alt="CTFTime Help Info">
 
 These commands gather information about upcoming competitions, current
 competitions, and leaderboards.
 
-**CTF Commands:**
+#### CTF Commands:
 
 <img src="images/ctf_help.PNG" alt="CTF Help Info">
 
@@ -33,7 +34,7 @@ These commands only work with the CTFd platform at the time being. A member is
 able to pull challenges, set credentials, join teams, and edit channel info
 (if permissions allow).
 
-**Rank Commands:**
+#### Rank Commands:
 
 <img src="images/rank_help.PNG" alt="Rank Help Info">
 
@@ -78,11 +79,11 @@ To calculate the **Overall** value of a member, the bot will take the average of
 all of the categories. The **Overall** value is the underlying value of the
 leaderboard and determines a member's rank.
 
-### Authors:
+## Authors:
 - itsecgary
 - aldenschmidt
 
-### Creds:
+## Creds:
 We included several utilities from NullCTF's bot. The integration of CTFTime and
 CTFd is very useful to this bot and assists the point system as well.
 
