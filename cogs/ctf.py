@@ -5,6 +5,7 @@ import json
 import requests
 import sys
 import re
+import os
 import traceback
 import help_info
 import time as tm
@@ -144,6 +145,37 @@ def calculate(server_name, ctf_name):
 
     # Update DB with all calculated information
     info_db.update({'name': server_name}, {"$set": {'ranking': rankings, 'competitions': comp_arr, 'num competitions': len(comp_arr)}}, upsert=True)
+
+def get_one_CTFd(ctx, url, username, password, s, chall):
+    r = s.get(f"{url}/login")
+    try:
+        nonce = r.text.split("csrfNonce': \"")[1].split('"')[0]
+    except: # sometimes errors happen here - possibly due to CTFd versioning
+        try:
+            nonce = r.text.split("name=\"nonce\" value=\"")[1].split('">')[0]
+        except:
+            raise NonceNotFound("Was not able to find the nonce token from login.")
+
+    # Login and check if credentials are valid
+    r = s.post(f"{url}/login", data={"name": username, "password": password, "nonce": nonce})
+    if "Your username or password is incorrect" in r.text:
+        raise InvalidCredentials("Invalid login credentials")
+
+    # Get challenge ID
+    all_challenges = s.get(f"{url}/api/v1/challenges").json()
+    chall_id = -1
+    for c_hash in all_challenges['data']:
+        if c_hash['name'].lower() == chall.lower():
+            chall_id = c_hash['id']
+            break
+
+    # If chall name was not found, return with error message
+    if chall_id == -1:
+        raise InvalidCredentials("Challenge not found")
+
+    # Grab challenge file and attach in message
+    challenge_info = s.get("{}/api/v1/challenges/{}".format(url, chall_id)).json()
+    return challenge_info
 
 def get_challenges_CTFd(ctx, url, username, password, s):
     r = s.get(f"{url}/login")
@@ -336,7 +368,7 @@ class CTF(commands.Cog):
 
                     # Pull challenge info if creds exist for it
                     if str(guild.name).replace(' ', '-') + "." + str(ctf) in self.creds:
-                        await CTF.pull(self, ctx, self.creds[str(guild.name).replace(' ', '-') + "." + str(ctf)]["site"])
+                        await CTF.pull_challs(self, ctx, self.creds[str(guild.name).replace(' ', '-') + "." + str(ctf)]["site"])
                         print("[{}] Successfully pulled challenge info for {}".format(guild.name, ctf))
 
                 # Right after competition ends
@@ -519,7 +551,7 @@ class CTF(commands.Cog):
             await ctx.send("DM me to set the credentials")
 
     @staticmethod
-    async def pull(self, ctx, url):
+    async def pull_challs(self, ctx, url):
         fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
         try:
             if not self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]:
@@ -573,13 +605,14 @@ class CTF(commands.Cog):
             return
         elif (ctf['end'] < unix_now):
             await ctx.send("CTF is over, but I still might have chall info.")
-            await CTF.pull(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
+            await CTF.pull_challs(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
             if not ctf['calculated?']: # we only want to calculate once
                 calculate(str(ctx.guild.name), str(ctx.message.channel))
         else:
-            await CTF.pull(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
+            await CTF.pull_challs(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
 
 
+        # Print challenges to chat
         ctf = server.find_one({'name': str(ctx.message.channel)}) # update local hash
         try:
             ctf_challenge_list = []
@@ -595,6 +628,78 @@ class CTF(commands.Cog):
                 message += "\n"
 
             await ctx.send("```md\n{0}```".format(message))
+        except:
+            traceback.print_exc()
+
+    @ctf.command()
+    @in_ctf_channel()
+    async def pull(self, ctx, chall):
+        fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
+        url = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"]
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+        ctf = server.find_one({'name': str(ctx.message.channel)})
+        unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
+
+        if not ctf:
+            await ctx.send("Please create a separate channel for this CTF")
+            return
+        elif (ctf['start'] > unix_now):
+            await ctx.send("CTF has not started! Wait until {}".format(ctf['start']))
+            return
+        elif (ctf['end'] < unix_now):
+            await ctx.send("CTF is over, but I still might have the challenge here somewhere...")
+
+        # Get challenge info
+        try:
+            if not self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]:
+                await ctx.send("Set credentials with `!ctf setcreds ...`")
+                return
+
+            if url[-1] == "/": url = url[:-1]
+            s = requests.session()
+            r = s.get("{}/login".format(url))
+            if fingerprints[0] in r.text:
+                user = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["user"]
+                password = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["pass"]
+                challenge_info = get_one_CTFd(ctx, url, user, password, s, chall)
+            elif fingerprints[1] in r.text:
+                raise InvalidProvider("rCTF functionality coming soon - cannot pull challenge.")
+            elif fingerprints[2] in r.text:
+                raise InvalidProvider("CTFx functionality coming soon - cannot pull challenge.")
+            else:
+                raise InvalidProvider("CTF is not based on CTFd or rCTF - cannot pull challenge.")
+
+            # Send info
+            ti = "{} ({})".format(challenge_info['data']['name'], challenge_info['data']['value'])
+            des = "{}".format(challenge_info['data']['description'])
+            emb = discord.Embed(title=ti, description=des, colour=1752220)
+            emb.add_field(name="Category", value=challenge_info['data']['category'], inline=True)
+            emb.add_field(name="Solves", value=challenge_info['data']['solves'], inline=True)
+
+            # Send attachments a.nd reaction
+            files = []
+            for i in range(len(challenge_info['data']['files'])):
+                fn = challenge_info['data']['files'][i].split('?')[0].split('/')[-1]
+                u = "{}{}".format(url, challenge_info['data']['files'][i])
+                contents = s.get(u).text
+                with open(fn, 'w') as f:
+                    f.write(contents)
+                files.append(fn)
+
+            emb.add_field(name="Files", value=str(files), inline=False)
+            await ctx.send(embed=emb)
+            for j in files:
+                await ctx.channel.send(file=discord.File(j))
+                os.remove(j)
+            await ctx.message.add_reaction("✅")
+        except InvalidProvider as ipm:
+            await ctx.send(ipm)
+        except InvalidCredentials as icm:
+            await ctx.send(icm)
+        except NonceNotFound as nnfm:
+            await ctx.send(nnfm)
+        except requests.exceptions.MissingSchema:
+            await ctx.send("Supply a valid url in the form: `http(s)://ctf.url`")
         except:
             traceback.print_exc()
 

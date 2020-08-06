@@ -13,12 +13,14 @@ create a text channel and role in the CTF category for a ctf (must have permissi
 `!ctf join [alias]`
 user \"joins\" the ctf team for the specified channel with the *alias* being their username for CTFd.
 the *alias* must be exactly what it is on the CTF platform
-`!ctf leave`
-removes channel role from user
 `!ctf setcreds [ctfd username] [password] [https://ctf.url] "[server]" [channel]`
 pin the message of ctf credentials, only runnable through DM with bot in order to preserve privacy
 `!ctf challs`
 get a list of the challenges in the ctf, and their statuses. *Updates DB every time this is called*
+`!ctf pull "[chall name]"`
+pull information about a specific challenge along with the files associated to the challenge
+`!ctf leave`
+removes channel role from user
 `!ctf archive`
 move the ctf channel to the archive category
 `!ctf delete`

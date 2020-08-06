@@ -81,8 +81,8 @@ async def on_member_remove(member):
 
 @bot.event
 async def on_message(ctx):
-    #if str(ctx.channel.type) == "private" or str(ctx.guild.id) == '734854267847966720' or ctx.channel.name == 'ctf-bot-dev':
-    await bot.process_commands(ctx)
+    if str(ctx.channel.type) == "private" or str(ctx.guild.id) == '734854267847966720' or ctx.channel.name == 'ctf-bot-dev':
+        await bot.process_commands(ctx)
 
 ################################ OTHER FUNCTIONS ###############################
 @bot.command()
