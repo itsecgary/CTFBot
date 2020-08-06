@@ -11,16 +11,16 @@ from config_vars import *
 
 ################################ DATA STRUCTURES ###############################
 thumbnails = {
-    "crypto": "https://tr3.cbsistatic.com/hub/i/2012/03/06/7025ebb2-c3a6-11e2-bc00-02911874f8c8/turing10.jpg",
-    "forensics": "https://content.linkedin.com/content/dam/business/marketing-solutions/regional/en-uk/blog/posts/Marketing-Research/Sherlock_Blog_710x399.jpg",
+    "crypto": "https://mk0privacycanadehyf0.kinstacdn.com/wp-content/uploads/2020/01/Roth-13-Cipher.png",
+    "forensics": "https://pbs.twimg.com/profile_images/1179025354129838080/NNXMmbyy_400x400.png",
     "misc": "https://fossbytes.com/wp-content/uploads/2017/01/pietscript-300x300.gif",
     "osint": "https://zdnet4.cbsistatic.com/hub/i/r/2014/09/18/a5431d0d-3f37-11e4-b6a0-d4ae52e95e57/resize/1200x900/c12b17da8fc4acbd7d687b0d943f1c41/anonymous-promises-payback-for-trademarked-anonymous-logo.jpg",
     "web exploitation": "https://invizon.com/wp-content/uploads/2013/09/webapp.jpg",
     "binary exploitation": "https://pbs.twimg.com/profile_images/1103593041766637568/aMkvIaLy.png",
-    "reversing": "https://www.goodcore.co.uk/blog/wp-content/uploads/2019/08/coding-vs-programming-2.jpg",
+    "reversing": "https://i.pinimg.com/originals/36/0e/24/360e24a8f599ea38bd1f1875d4890632.jpg",
     "tryhackme": "https://pbs.twimg.com/profile_images/1192912844297297920/73n4_SvJ_400x400.jpg",
     "cryptocurrency": "https://cdn.dnaindia.com/sites/default/files/styles/full/public/2020/04/10/901440-cryptocurrency.jpg",
-    "network": "https://poweringchicago.com/wp-content/uploads/2019/03/whats-iot-670x335.jpg",
+    "network": "https://www.pngkit.com/png/detail/365-3657626_wireshark-icon.png",
     "mobile": "https://dwkujuq9vpuly.cloudfront.net/news/wp-content/uploads/2020/03/Android-main.jpg",
     "overall": "https://www.cbtnuggets.com/blog/wp-content/uploads/2019/10/10684-1024x575.jpg"
 }
