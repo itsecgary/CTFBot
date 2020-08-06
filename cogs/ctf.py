@@ -19,10 +19,10 @@ chall_aliases = {
     "forensics": ["forensics", "stego", "steganography", "memory analysis"],
     "misc": ["misc", "other", "miscellaneous", "trivia", "random", "warmup"],
     "osint": ["osint" "open source intelligence"],
-    "web": ["web", "web-exploitation", "web exploitation"],
-    "pwn-bin": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation", "kernel exploitation"],
-    "reverse": ["reverse", "reversing", "re", "reverse engineering", "reverse-engineering"],
-    "htb": ["htb", "hackthebox", "hack the box", "try hack me", "tryhackme"],
+    "web exploitation": ["web", "web-exploitation", "web exploitation"],
+    "binary exploitation": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation", "kernel exploitation"],
+    "reversing": ["reverse", "reversing", "re", "reverse engineering", "reverse-engineering"],
+    "tryhackme": ["htb", "hackthebox", "hack the box", "try hack me", "tryhackme"],
     "cryptocurrency": ["cryptocurrency", "etherium", "coin", "bitcoin", "blockchain", "secure contracts"],
     "network": ["network", "networking", "network analysis", "wireshark", "rf", "pcap"],
     "mobile": ["mobile", "android", "mobile security", "apk"]
@@ -56,29 +56,33 @@ def calculate(server_name, ctf_name):
     num_members = len(ctf['members'].keys())
 
     # Calculate scores for each member of competition
-    for name, points in ctf['members'].items():
-        # Calculate each category
-        member = members.find_one({'name': name})
-        length = len(member['ctfs_competed'])
-        for cat, val in points.items():
-            if not (cat == "alias"):
-                solved_p = val
-                total_p = ctf['points'][cat]
-                if total_p == 0:
-                    score = 0
-                else:
-                    score = 10*(solved_p/total_p)*(1 + ctf['weight']/100)*(1 + (9 - num_members)/10)
-                    curr_score = member['ratings'][cat] * length
-                    if curr_score == 0 and not length == 0: score = ((score + curr_score)/length)
-                    if not score == 0: score = score + ((length + 1)/50)
-                member['ratings'][cat] = score
-
+    for name, mem_points in ctf['members'].items():
         # Add CTF to competed CTFs
+        member = members.find_one({'name': name})
         arr = member['ctfs_competed']
         if arr == []:
             arr = [ctf_name]
         else:
             arr.append(ctf_name)
+        length = len(arr)
+
+        # Calculate each category
+        for cat, val in mem_points.items():
+            if not (cat == "alias") and not (ctf['points'][cat] == 0):
+                solved_p = val
+                total_p = ctf['points'][cat]
+                curr_score = member['ratings'][cat] * (length-1)
+                if total_p == 0:
+                    score = 0
+                else:
+                    score = 10*(solved_p/total_p)*(1 + ctf['weight']/100)*(1 + (9 - num_members)/10)
+
+                score = ((score + curr_score)/length)
+                if score == 0:
+                    score = int(score)
+                else:
+                    score = score + ((length)/50)
+                member['ratings'][cat] = score
 
         # Calculate overall
         overall = 0
@@ -90,10 +94,11 @@ def calculate(server_name, ctf_name):
         server['members'].update({'name': name}, {"$set": {'overall': overall, 'ratings': member['ratings'], 'ctfs_competed': arr}}, upsert=True)
         server['ctfs'].update({'name': ctf_name}, {"$set": {'calculated?': True}}, upsert=True)
 
-    # edit the rankings
+    # add overall to rankings
+    rankings = {}
+    overall_r = []
     already_got = []
-    rankings = []
-    while (len(rankings) < members.count()):
+    while (len(overall_r) < members.count()):
         highest = -1
         p = None
         for person in members.find():
@@ -101,18 +106,33 @@ def calculate(server_name, ctf_name):
                 highest = person['overall']
                 p = person
         already_got.append(p['name'])
-        rankings.append({'name': p['name'], 'score': p['overall']})
+        overall_r.append({'name': p['name'], 'score': p['overall']})
+    rankings['overall'] = overall_r
 
-    # Updtae Guild Information
+    # add each CTF category to rankings
+    for cat in chall_aliases.keys():
+        arr = []
+        already_got = []
+        while (len(arr) < members.count()):
+            highest = -1
+            p = None
+            for person in members.find():
+                if person['ratings'][cat] > highest and not person['name'] in already_got:
+                    highest = person['ratings'][cat]
+                    p = person
+            already_got.append(p['name'])
+            arr.append({'name': p['name'], 'score': p['ratings'][cat]})
+        rankings[cat] = arr
+
+    # Update Guild Information
     comp_arr = info_db.find_one({'name': server_name})['competitions']
     if comp_arr == []:
         comp_arr = [ctf_name]
     else:
         comp_arr.append(ctf_name)
-    info_db.update({'name': server_name}, {"$set": {'ranking': rankings, 'competitions': comp_arr, 'num competitions': len(comp_arr)}}, upsert=True)
 
-    # edit category ranks for each user
-    print("Need Functionality")
+    # Update DB with all calculated information
+    info_db.update({'name': server_name}, {"$set": {'ranking': rankings, 'competitions': comp_arr, 'num competitions': len(comp_arr)}}, upsert=True)
 
 def get_challenges_CTFd(ctx, url, username, password, s):
     r = s.get(f"{url}/login")
@@ -141,7 +161,7 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     challenges = {}
     point_info = {
         "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
-        "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
+        "web exploitation": 0, "binary exploitation": 0, "reversing": 0, "tryhackme": 0,
         "cryptocurrency": 0, "network": 0, "mobile": 0, "total": 0
     }
     solved_points = 0
@@ -317,7 +337,7 @@ class CTF(commands.Cog):
     @commands.group()
     async def ctf(self, ctx):
         if ctx.invoked_subcommand is None:
-            await ctx.channel.send("Invalid command. Run `>ctf rank` for information on **ctf** commands.")
+            await ctx.channel.send("Invalid command. Run `>help ctf` for information on **ctf** commands.")
 
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     @commands.has_permissions(manage_channels=True)
@@ -411,8 +431,8 @@ class CTF(commands.Cog):
         # Add member to CTF DB along with alias in order for point processing
         members = ctf['members']
         members[str(user)] = {
-            "alias": alias, "crypto": 0, "forensics": 0, "misc": 0, "osint": 0, "web": 0,
-            "pwn-bin": 0, "reverse": 0, "htb": 0, "cryptocurrency": 0, "network": 0, "mobile": 0
+            "alias": alias, "crypto": 0, "forensics": 0, "misc": 0, "osint": 0, "web exploitation": 0,
+            "binary exploitation": 0, "reversing": 0, "tryhackme": 0, "cryptocurrency": 0, "network": 0, "mobile": 0
         }
         server.update({'name': str(ctx.message.channel)}, {"$unset": {'members': ""}}, upsert=True)
         server.update({'name': str(ctx.message.channel)}, {"$set": {'members': members}}, upsert=True)

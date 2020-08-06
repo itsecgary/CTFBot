@@ -33,7 +33,7 @@ async def on_ready():
             team_info = {
                 "name": str(guild.name),"guild id": str(guild.id),
                 "num members": member_cnt, "competitions": [],
-                "num competitions": 0, "ranking": []
+                "num competitions": 0, "ranking": {}
             }
             server["info"].update_one({"name": str(guild.name)}, {"$set": team_info}, upsert=True)
         print("------------------------------------------------{}".format("-"*len(guild.name)))
@@ -109,14 +109,9 @@ def add_member(member, guild):
         "overall": 0,
         "ctfs_competed": [],
         "ratings": {
-            "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
-            "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
-            "cryptocurrency": 0, "network": 0, "mobile": 0
-        },
-        "ranks": {
-            "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
-            "web": 0, "pwn-bin": 0, "reverse": 0, "htb": 0,
-            "cryptocurrency": 0, "network": 0, "mobile": 0
+            "crypto": 0, "forensics": 0, "reversing": 0, "osint": 0,
+            "network": 0, "tryhackme": 0, "misc": 0, "mobile": 0,
+            "cryptocurrency": 0, "web exploitation": 0, "binary exploitation": 0
         }
     }
     m = members.find_one({'name': member_info['name']})
