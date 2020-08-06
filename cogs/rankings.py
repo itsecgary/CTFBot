@@ -21,7 +21,8 @@ thumbnails = {
     "tryhackme": "https://pbs.twimg.com/profile_images/1192912844297297920/73n4_SvJ_400x400.jpg",
     "cryptocurrency": "https://cdn.dnaindia.com/sites/default/files/styles/full/public/2020/04/10/901440-cryptocurrency.jpg",
     "network": "https://poweringchicago.com/wp-content/uploads/2019/03/whats-iot-670x335.jpg",
-    "mobile": "https://dwkujuq9vpuly.cloudfront.net/news/wp-content/uploads/2020/03/Android-main.jpg"
+    "mobile": "https://dwkujuq9vpuly.cloudfront.net/news/wp-content/uploads/2020/03/Android-main.jpg",
+    "overall": "https://www.cbtnuggets.com/blog/wp-content/uploads/2019/10/10684-1024x575.jpg"
 }
 
 def in_channel():
@@ -36,7 +37,9 @@ def in_channel():
     return commands.check(tocheck)
 
 def place(pl):
-    if pl >= 11 and pl <= 13:
+    if pl == 0:
+        pl = "N/A"
+    elif pl >= 11 and pl <= 13:
         pl = "{}th".format(pl)
     elif pl % 10 == 1:
         pl = "{}st".format(pl)
@@ -67,14 +70,13 @@ class Leaderboard(commands.Cog):
         member = server['members'].find_one({'name': str(name)})
 
         if (server['info'].find_one({'name': str(ctx.guild.name)})['ranking'] == {}):
-            await ctx.send("No one on the server has competed in a competition yet!")
-            return
-
-        count = 1
-        for r in server['info'].find_one({'name': str(ctx.guild.name)})['ranking']['overall']:
-            if r['name'] == str(name):
-                break
-            count += 1
+            count = 0
+        else:
+            count = 1
+            for r in server['info'].find_one({'name': str(ctx.guild.name)})['ranking']['overall']:
+                if r['name'] == str(name):
+                    break
+                count += 1
 
         # Format info
         ti = "{}'s CTF Profile".format(str(name).split('#')[0])
@@ -90,9 +92,11 @@ class Leaderboard(commands.Cog):
             elif cat == "osint":
                 cat = cat.upper() + " :mag_right:"
             elif cat == "web exploitation":
-                cat = cat.capitalize() + " :spider_web:"
+                cat = cat.split(' ')
+                cat = "{} {} :spider_web:".format(cat[0].capitalize(), cat[1].capitalize())
             elif cat == "binary exploitation":
-                cat = cat.capitalize() + " :game_die:"
+                cat = cat.split(' ')
+                cat = "{} {} :game_die:".format(cat[0].capitalize(), cat[1].capitalize())
             elif cat == "reversing":
                 cat = cat.capitalize() + " :slot_machine:"
             elif cat == "tryhackme":
@@ -113,29 +117,34 @@ class Leaderboard(commands.Cog):
 
     @rank.command()
     @in_channel()
-    async def top5(self, ctx, cat=None):
+    async def top5(self, ctx, cat=None, cat2=None):
         server = client[str(ctx.guild.name).replace(' ', '-')]
-        
-        if (server['info'].find_one({'name': str(ctx.guild.name)})['ranking'] == {}):
+        info = server['info'].find_one({'name': str(ctx.guild.name)})
+
+        if (info['ranking'] == {}):
             await ctx.send("No one on the server has competed in a competition yet!")
             return
 
-        info = server['info'].find_one({'name': str(ctx.guild.name)})
         if cat is None:
-            cat = "overall"
-        elif cat not in thumbnails.keys():
+            cat = "Overall"
+        elif not cat2 is None:
+            cat = cat.capitalize() + ' ' + cat2.capitalize()
+        else:
+            cat = cat.capitalize()
+
+        if cat.lower() not in thumbnails.keys():
             await ctx.send("The CTF category is invalid.")
             return
 
-        ti = "Top 5 {} Scores".format(cat.capitalize(), ctx.guild.name)
+        ti = "Top 5 {} Scores".format(cat, ctx.guild.name)
         emb = discord.Embed(title=ti, colour=11027200)
-        emb.set_thumbnail(url=thumbnails[cat])
+        emb.set_thumbnail(url=thumbnails[cat.lower()])
 
         count = 0
-        for member in info['ranking'][cat]:
+        for member in info['ranking'][cat.lower()]:
             if count < 5:
                 message = "({}) {}".format(place(count + 1), member['name'].split("#")[0])
-                val = "{}".format(member['score'])
+                val = "{}".format(round(member['score'], 3))
                 emb.add_field(name=message, value=val, inline=True)
             else:
                 break

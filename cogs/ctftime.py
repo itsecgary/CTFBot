@@ -106,7 +106,7 @@ class CtfTime(commands.Cog):
                 await ctx.channel.send(embed=embed)
 
         if running == False: # No ctfs were found to be running
-            await ctx.send("No CTFs currently running! Check out >ctftime countdown, and >ctftime upcoming to see when ctfs will start!")
+            await ctx.send("No CTFs currently running! Check out `>ctftime countdown`, and `>ctftime` upcoming to see when ctfs will start!")
 
     @ctftime.command()
     async def upcoming(self, ctx, amount=None):

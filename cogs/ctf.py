@@ -41,6 +41,17 @@ def in_ctf_channel():
 
     return commands.check(tocheck)
 
+def in_channel():
+    async def tocheck(ctx):
+        # A check for ctf context specific commands
+        if not str(ctx.channel.type) == "private":
+            return True
+        else:
+            await ctx.send("This command is not available over DM!")
+            return False
+
+    return commands.check(tocheck)
+
 # TODO
 def display_stats(server, ctf):
     # Show place and points
@@ -342,6 +353,7 @@ class CTF(commands.Cog):
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     @commands.has_permissions(manage_channels=True)
     @ctf.command()
+    @in_channel()
     async def create(self, ctx, link):
         servcat = "CTF"
         category = discord.utils.get(ctx.guild.categories, name=servcat)
