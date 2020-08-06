@@ -153,7 +153,7 @@ def get_challenges_CTFd(ctx, url, username, password, s):
         try:
             nonce = r.text.split("name=\"nonce\" value=\"")[1].split('">')[0]
         except:
-            raise NonceNotFound("Was not able to find the nonce token from login, please >report this along with the ctf url.")
+            raise NonceNotFound("Was not able to find the nonce token from login.")
 
     # Login and check if credentials are valid
     r = s.post(f"{url}/login", data={"name": username, "password": password, "nonce": nonce})
@@ -348,7 +348,7 @@ class CTF(commands.Cog):
     @commands.group()
     async def ctf(self, ctx):
         if ctx.invoked_subcommand is None:
-            await ctx.channel.send("Invalid command. Run `>help ctf` for information on **ctf** commands.")
+            await ctx.channel.send("Invalid command. Run `!help ctf` for information on **ctf** commands.")
 
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     @commands.has_permissions(manage_channels=True)
@@ -523,7 +523,7 @@ class CTF(commands.Cog):
         fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
         try:
             if not self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]:
-                await ctx.send("Set credentials with `>ctf setcreds ...`")
+                await ctx.send("Set credentials with `!ctf setcreds ...`")
                 return
 
             if url[-1] == "/": url = url[:-1]

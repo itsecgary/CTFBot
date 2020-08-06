@@ -6,7 +6,7 @@ from config_vars import *
 import help_info
 
 ################################ DATA STRUCTURES ###############################
-bot = commands.Bot(command_prefix = '>')
+bot = commands.Bot(command_prefix = '!')
 bot.remove_command('help')
 extensions = ['rankings', 'ctftime', 'ctf']
 
@@ -17,7 +17,7 @@ async def on_ready():
     print(f"|  {bot.user.name} - Online   |")
     print(f"|  discord.py {discord.__version__}  |")
     print("|--------------------|")
-    await bot.change_presence(status=discord.Status.online, activity=discord.Game(name=">help"))
+    await bot.change_presence(status=discord.Status.online, activity=discord.Game(name="!help"))
 
     # Create current member info
     for guild in bot.guilds:
@@ -44,7 +44,7 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         return
     if isinstance(error, commands.MissingRequiredArgument):
-        msg += "Missing a required argument.  Do >help\n"
+        msg += "Missing a required argument.  Do !help\n"
     if isinstance(error, commands.MissingPermissions):
         msg += "You do not have the appropriate permissions to run this command.\n"
     if isinstance(error, commands.BotMissingPermissions):
