@@ -19,12 +19,14 @@ There are three types of command groups for CTFBot:
 <img src="images/help.PNG" alt="Help Info">
 
 **CTFTime Commands:**
+
 <img src="images/ctftime_help.PNG" alt="CTFTime Help Info">
 
 These commands gather information about upcoming competitions, current
 competitions, and leaderboards.
 
 **CTF Commands:**
+
 <img src="images/ctf_help.PNG" alt="CTF Help Info">
 
 These commands only work with the CTFd platform at the time being. A member is
@@ -32,6 +34,7 @@ able to pull challenges, set credentials, join teams, and edit channel info
 (if permissions allow).
 
 **Rank Commands:**
+
 <img src="images/rank_help.PNG" alt="Rank Help Info">
 
 The rank commands are used to determine ones rank among their peers. There are
