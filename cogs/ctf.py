@@ -681,8 +681,9 @@ class CTF(commands.Cog):
             for i in range(len(challenge_info['data']['files'])):
                 fn = challenge_info['data']['files'][i].split('?')[0].split('/')[-1]
                 u = "{}{}".format(url, challenge_info['data']['files'][i])
-                contents = s.get(u).text
-                with open(fn, 'w') as f:
+                contents = s.get(u).text.encode()
+                #contents = contents
+                with open(fn, 'wb') as f:
                     f.write(contents)
                 files.append(fn)
 
