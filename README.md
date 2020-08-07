@@ -109,7 +109,7 @@ to have ratings on as we have encountered them throughout several CTF competitio
 - Cryptocurrency
 - Network
 
-|                Categories                 |
+|   1     |     2     |          3          |
 | ------- | --------- | ------------------- |
 | Crypto  | Forensics |  Web Exploitation   |
 |  OSINT  |  Reverse  | Binary Exploitation |
