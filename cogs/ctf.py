@@ -678,6 +678,7 @@ class CTF(commands.Cog):
 
             # Send attachments a.nd reaction
             files = []
+            m = ""
             for i in range(len(challenge_info['data']['files'])):
                 fn = challenge_info['data']['files'][i].split('?')[0].split('/')[-1]
                 u = "{}{}".format(url, challenge_info['data']['files'][i])
@@ -686,8 +687,10 @@ class CTF(commands.Cog):
                 with open(fn, 'wb') as f:
                     f.write(contents)
                 files.append(fn)
+                m += fn + ', '
 
-            emb.add_field(name="Files", value=str(files), inline=False)
+            if m == "": m = "N/A  "
+            emb.add_field(name="Files", value=m[:-2], inline=True)
             await ctx.send(embed=emb)
             for j in files:
                 await ctx.channel.send(file=discord.File(j))
