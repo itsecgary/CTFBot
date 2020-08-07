@@ -99,21 +99,13 @@ member's value in each specific category. We have included 10 different categori
 to have ratings on as we have encountered them throughout several CTF competitions.
 
 **Categories:**
-- Crypto
-- Forensics
-- OSINT
-- Web Exploitation
-- Binary Exploitation
-- Reverse
-- TryHackMe
-- Cryptocurrency
-- Network
 
-|   1     |     2     |          3          |
+| ------- | --------- | ------------------- |
 | ------- | --------- | ------------------- |
 | Crypto  | Forensics |  Web Exploitation   |
 |  OSINT  |  Reverse  | Binary Exploitation |
 | Network | TryHackMe |   Cryptocurrency    |
+|  Misc   |   Mobile  |                     |
 
 Each of these categories will be put through the following formula to decide the
 value for each user:
