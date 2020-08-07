@@ -53,6 +53,57 @@ def in_channel():
 
     return commands.check(tocheck)
 
+def check_aliases(guild, creds, channel_name):
+    fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
+    server = client[str(guild.name).replace(' ', '-')]['ctfs']
+    ctf = server.find_one({'name': channel_name})
+
+    url = creds[str(guild.name).replace(' ', '-') + "." + channel_name]["site"]
+    if url[-1] == "/": url = url[:-1]
+    s = requests.session()
+    r = s.get("{}/login".format(url))
+    if fingerprints[0] in r.text:
+        user = creds[str(guild.name).replace(' ', '-') + "." + channel_name]["user"]
+        password = creds[str(guild.name).replace(' ', '-') + "." + channel_name]["pass"]
+        try:
+            nonce = r.text.split("csrfNonce': \"")[1].split('"')[0]
+        except: # sometimes errors happen here - possibly due to CTFd versioning
+            try:
+                nonce = r.text.split("name=\"nonce\" value=\"")[1].split('">')[0]
+            except:
+                raise NonceNotFound("Was not able to find the nonce token from login. Could not check if aliases are correct.")
+
+        # Login and check if credentials are valid
+        r = s.post(f"{url}/login", data={"name": user, "password": password, "nonce": nonce})
+        if "Your username or password is incorrect" in r.text:
+            raise InvalidCredentials("Invalid login credentials. Could not check if aliases are correct.")
+
+        # Get aliases for all members
+        aliases = []
+        members = s.get(f"{url}/api/v1/teams/me").json()['data']['members']
+        for m_id in members:
+            alias = s.get("{}/api/v1/users/{}".format(url, m_id)).json()
+            aliases.append(alias['data']['name'])
+
+        # iterate members in competition and check if they are in aliases
+        members_not = []
+        for name, attr in ctf['members'].items():
+            if not attr['alias'] in aliases:
+                members_not.append(name)
+
+        if len(members_not) > 0:
+            m = ""
+            for mem in members_not:
+                it = mem.split("#")
+                user = discord.utils.get(guild.members, name = it[0], discriminator = it[1])
+                m += user.mention + " "
+            m += "\nYou have invalid aliases! "
+            m += "Send `!ctf join [alias]` to update your alias or this will not count for your scoring."
+            raise InvalidCredentials(m)
+
+    else:
+        raise InvalidCredentials("CTF is not based on CTFd - could not check if aliases are correct.")
+
 # TODO
 def display_stats(server, ctf):
     # Show place and points
@@ -351,7 +402,7 @@ class CTF(commands.Cog):
         self.current = [] # Stores started ctfs
         self.get_info.start()
 
-    @tasks.loop(minutes=2.0)
+    @tasks.loop(minutes=1.0)
     async def get_info(self):
         unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
 
@@ -366,10 +417,20 @@ class CTF(commands.Cog):
                     if not ctf['name'] in self.current:
                         self.current.append(ctf['name'])
 
-                    # Pull challenge info if creds exist for it
-                    if str(guild.name).replace(' ', '-') + "." + str(ctf) in self.creds:
-                        await CTF.pull_challs(self, ctx, self.creds[str(guild.name).replace(' ', '-') + "." + str(ctf)]["site"])
-                        print("[{}] Successfully pulled challenge info for {}".format(guild.name, ctf))
+                    # Check aliases
+                    if str(guild.name).replace(' ', '-') + "." + str(ctf['name']) in self.creds:
+                        c_id = 0
+                        for channel in guild.channels:
+                            if channel.name == ctf['name']:
+                                print(channel.id)
+                                c_id = channel.id
+                                break
+                        ch = self.bot.get_channel(c_id)
+                        try:
+                            check_aliases(guild, self.creds, str(ctf['name'])) # Check if all aliases are good!
+                            await ch.send("Yep, everyone has correct aliases")
+                        except InvalidCredentials as icm:
+                            await ch.send(icm)
 
                 # Right after competition ends
                 elif unix_now - ctf['end'] < 122:
