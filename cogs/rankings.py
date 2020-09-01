@@ -60,7 +60,7 @@ class Leaderboard(commands.Cog):
     @commands.group()
     async def rank(self, ctx):
         if ctx.invoked_subcommand is None:
-            await ctx.channel.send("Invalid command. Run `!help rank` for information on **rank** commands.")
+            await ctx.channel.send("Invalid command. Run `>help rank` for information on **rank** commands.")
 
     @rank.command()
     @in_channel()

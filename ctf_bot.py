@@ -6,7 +6,7 @@ from config_vars import *
 import help_info
 
 ################################ DATA STRUCTURES ###############################
-bot = commands.Bot(command_prefix = '!')
+bot = commands.Bot(command_prefix = '>')
 bot.remove_command('help')
 extensions = ['rankings', 'ctftime', 'ctf']
 
@@ -17,7 +17,7 @@ async def on_ready():
     print(f"|  {bot.user.name} - Online   |")
     print(f"|  discord.py {discord.__version__}  |")
     print("|--------------------|")
-    await bot.change_presence(status=discord.Status.online, activity=discord.Game(name="!help"))
+    await bot.change_presence(status=discord.Status.online, activity=discord.Game(name=">help"))
 
     # Create current member info
     for guild in bot.guilds:
@@ -44,7 +44,7 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         return
     if isinstance(error, commands.MissingRequiredArgument):
-        msg += "Missing a required argument.  Do !help\n"
+        msg += "Missing a required argument.  Do >help\n"
     if isinstance(error, commands.MissingPermissions):
         msg += "You do not have the appropriate permissions to run this command.\n"
     if isinstance(error, commands.BotMissingPermissions):
@@ -81,8 +81,8 @@ async def on_member_remove(member):
 
 @bot.event
 async def on_message(ctx):
-    if str(ctx.channel.type) == "private" or str(ctx.guild.id) == '734854267847966720' or ctx.channel.name == 'ctf-bot-dev':
-        await bot.process_commands(ctx)
+    #if str(ctx.channel.type) == "private" or str(ctx.guild.id) == '734854267847966720' or ctx.channel.name == 'ctf-bot-dev':
+    await bot.process_commands(ctx)
 
 ################################ OTHER FUNCTIONS ###############################
 @bot.command()
@@ -108,6 +108,7 @@ def add_member(member, guild):
         "name": member.name + '#' + member.discriminator,
         "overall": 0,
         "ctfs_competed": [],
+        "pfp": str(member.avatar_url),
         "ratings": {
             "crypto": 0, "forensics": 0, "reversing": 0, "osint": 0,
             "network": 0, "tryhackme": 0, "misc": 0, "mobile": 0,
