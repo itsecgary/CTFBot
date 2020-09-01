@@ -98,17 +98,11 @@ def check_aliases(guild, creds, channel_name):
                 user = discord.utils.get(guild.members, name = it[0], discriminator = it[1])
                 m += user.mention + " "
             m += "\nYou have invalid aliases! "
-            m += "Send `!ctf join [alias]` to update your alias or this will not count for your scoring."
+            m += "Send `>ctf join [alias]` to update your alias or this will not count for your scoring."
             raise InvalidCredentials(m)
 
     else:
         raise InvalidCredentials("CTF is not based on CTFd - could not check if aliases are correct.")
-
-# TODO
-def display_stats(server, ctf):
-    # Show place and points
-    # Show member breakdown of solves
-    print("Need Functionality")
 
 def calculate(server_name, ctf_name):
     # Fetch Databases
@@ -411,7 +405,7 @@ class CTF(commands.Cog):
             server = client[str(guild.name).replace(' ', '-')]
             for ctf in server['ctfs'].find():
                 # Pull challenges at very START and END of competition
-                if (unix_now - ctf['start'] < 122) or \
+                if ((unix_now - ctf['start'] < 122) and (unix_now - ctf['start'] > 0)) or \
                 ((ctf['end'] - unix_now > 0) and (ctf['end'] - unix_now < 122)):
                     # Add name to current array
                     if not ctf['name'] in self.current:
@@ -435,13 +429,56 @@ class CTF(commands.Cog):
                 # Right after competition ends
                 elif unix_now - ctf['end'] < 122:
                     self.current.remove(ctf['name'])
-                    display_stats(server, ctf)
+                    c_id = 0
+
+                    # Get channel id to send info
+                    c_id = 0
+                    for channel in guild.channels:
+                        if channel.name == ctf['name']:
+                            c_id = channel.id
+                            break
+                    ch = self.bot.get_channel(c_id)
+
+                    # Display Statistics from competition
+                    # Add simple team stats
+                    ti = "Stats from {}".format(ctf['name'])
+                    des = "**Members:** "
+                    for name, v in ctf['members'].items():
+                        des += "{}, ".format(name.split("#")[0])
+                    des = des[:-2]
+                    val = "{} out of {} points".format(ctf['solved points'], ctf['points']['total'])
+                    rank = ctf['rank']
+                    if rank == "": rank = "???"
+                    emb = discord.Embed(title=ti, description=des, colour=10181046)
+                    emb.add_field(name="Score", value=val, inline=True)
+                    emb.add_field(name="Place", value=rank, inline=True)
+                    emb.set_thumbnail(url=str(ctf['logo']))
+                    await ch.send(embed=emb)
+
+                    # Add all members stats
+                    for name, attr in ctf['members'].items():
+                        total = 0
+                        ti = "{}'s Details".format(name.split('#')[0])
+                        emb = discord.Embed(title=ti, description="[scored] / [total]", colour=10181046)
+                        for cat, val in attr.items():
+                            if not cat == "alias" and not val == 0:
+                                nm = ' '.join([c.capitalize() for c in cat.split(' ')])
+                                val2 = f"{val}" + " / {}".format(ctf['points'][cat])
+                                emb.add_field(name=nm, value=val2, inline=False)
+                                total += val
+
+                        emb.set_thumbnail(url=(server['members'].find_one({'name': name})['pfp']))
+                        emb.add_field(name="Total Points", value=total, inline=True)
+                        await ch.send(embed=emb)
+                        print("got user embed - {}".format(name))
+
+                    # Calculate scores
                     calculate(str(guild.name), ctf)
 
     @commands.group()
     async def ctf(self, ctx):
         if ctx.invoked_subcommand is None:
-            await ctx.channel.send("Invalid command. Run `!help ctf` for information on **ctf** commands.")
+            await ctx.channel.send("Invalid command. Run `>help ctf` for information on **ctf** commands.")
 
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     @commands.has_permissions(manage_channels=True)
@@ -474,7 +511,7 @@ class CTF(commands.Cog):
             "website": event_json["url"], "weight": event_json["weight"],
             "description": event_json["description"], "start": unix_start,
             "end": unix_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours"),
-            "members": {}, "calculated?": False
+            "members": {}, "calculated?": False, "logo": event_json["logo"]
         }
 
         # Update CTF DB for guild
@@ -616,7 +653,7 @@ class CTF(commands.Cog):
         fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
         try:
             if not self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]:
-                await ctx.send("Set credentials with `!ctf setcreds ...`")
+                await ctx.send("Set credentials with `>ctf setcreds ...`")
                 return
 
             if url[-1] == "/": url = url[:-1]
@@ -713,7 +750,7 @@ class CTF(commands.Cog):
         # Get challenge info
         try:
             if not self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]:
-                await ctx.send("Set credentials with `!ctf setcreds ...`")
+                await ctx.send("Set credentials with `>ctf setcreds ...`")
                 return
 
             if url[-1] == "/": url = url[:-1]
