@@ -33,7 +33,7 @@ chall_aliases = {
 def in_ctf_channel():
     async def tocheck(ctx):
         # A check for ctf context specific commands
-        if not str(ctx.channel.type) == "private" and \
+        if not (str(ctx.channel.type) == "private") and \
            client[str(ctx.guild.name).replace(' ', '-')]['ctfs'].find_one({'name': str(ctx.message.channel)}):
             return True
         else:
@@ -511,7 +511,8 @@ class CTF(commands.Cog):
             "website": event_json["url"], "weight": event_json["weight"],
             "description": event_json["description"], "start": unix_start,
             "end": unix_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours"),
-            "members": {}, "calculated?": False, "logo": event_json["logo"]
+            "members": {}, "calculated?": False, "logo": event_json["logo"],
+            "manual_solves": {}
         }
 
         # Update CTF DB for guild
@@ -699,7 +700,8 @@ class CTF(commands.Cog):
             await ctx.send("Please create a separate channel for this CTF")
             return
         elif (ctf['start'] > unix_now):
-            await ctx.send("CTF has not started! Wait until {}".format(ctf['start']))
+            actual_date = datetime.fromtimestamp(ctf['start']).strftime('%H:%M ET on %m/%d/%Y')
+            await ctx.send("CTF has not started! Wait until {}".format(actual_date))
             return
         elif (ctf['end'] < unix_now):
             await ctx.send("CTF is over, but I still might have chall info.")
@@ -804,6 +806,17 @@ class CTF(commands.Cog):
             await ctx.send("Supply a valid url in the form: `http(s)://ctf.url`")
         except:
             traceback.print_exc()
+
+    @ctf.command()
+    @in_ctf_channel()
+    async def solve(self, ctx, chall_name):
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+        manual_solves = server.find_one({'name': str(ctx.message.channel)})['manual_solves']
+        manual_solves[chall_name] = ctx.author.name
+
+        ctf_info = {'name': str(ctx.message.channel), 'manual_solves': manual_solves}
+        server.update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
+        await ctx.channel.send("{} has solved `{}`".format(ctx.author.name, chall_name))
 
 #################################### SETUP #####################################
 def setup(bot):

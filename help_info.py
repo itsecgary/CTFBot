@@ -19,6 +19,8 @@ pin the message of ctf credentials, only runnable through DM with bot in order t
 get a list of the challenges in the ctf, and their statuses. *Updates DB every time this is called*
 `>ctf pull "[chall name]"`
 pull information about a specific challenge along with the files associated to the challenge
+`>ctf solve "[chall name]"`
+this command is for competitions which only allow one sign-in per team
 `>ctf leave`
 removes channel role from user
 `>ctf archive`
