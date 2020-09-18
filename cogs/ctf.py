@@ -314,7 +314,8 @@ def get_challenges_CTFd(ctx, url, username, password, s):
 
     # Add total points to db
     rank = ""
-    if "place" in team_info['data'].keys(): rank += team_info['data']['place']
+    if "place" in team_info['data'].keys() and team_info['data']['place']:
+        rank += team_info['data']['place']
     ctf_info = {'points': point_info, 'solved points': solved_points,
                 'rank': rank, 'members': members}
     #server.update({'name': str(ctx.message.channel)}, {"$unset": {'total points': ""}}, upsert=True)
