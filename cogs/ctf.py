@@ -714,23 +714,30 @@ class CTF(commands.Cog):
 
 
         # Print challenges to chat
-        ctf = server.find_one({'name': str(ctx.message.channel)}) # update local hash
-        try:
-            ctf_challenge_list = []
-            message = ""
-            for k, v in ctf['challenges'].items():
-                message += "- {0}\n".format(k)
-                for chall in v:
-                    message += "[{0}]({1}): ".format(chall['name'], chall['points'])
-                    if chall['solved'] == True:
-                        message += "Solved - {0}\n".format(chall['solver'])
-                    else:
-                        message += "Unsolved\n"
-                message += "\n"
+        if 'challenges' in ctf.keys():
+            ctf = server.find_one({'name': str(ctx.message.channel)}) # update local hash
+            try:
+                ctf_challenge_list = []
+                message = ""
+                message2 = ""
+                for k, v in ctf['challenges'].items():
+                    if len(message) > 1500:
+                        message2 = message
+                        message = ""
+                    message += "- {0}\n".format(k)
+                    for chall in v:
+                        message += "[{0}]({1}): ".format(chall['name'], chall['points'])
+                        if chall['solved'] == True:
+                            message += "Solved - {0}\n".format(chall['solver'])
+                        else:
+                            message += "Unsolved\n"
+                    message += "\n"
 
-            await ctx.send("```md\n{0}```".format(message))
-        except:
-            traceback.print_exc()
+                await ctx.send("```md\n{0}```".format(message2))
+                if message2:
+                    await ctx.send("```md\n{0}```".format(message))
+            except:
+                traceback.print_exc()
 
     @ctf.command()
     @in_ctf_channel()
