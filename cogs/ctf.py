@@ -28,6 +28,7 @@ chall_aliases = {
     "network": ["network", "networking", "network analysis", "wireshark", "rf", "pcap"],
     "mobile": ["mobile", "android", "mobile security", "apk"]
 }
+fake_var = 12
 
 #################################### METHODS ###################################
 def in_ctf_channel():
