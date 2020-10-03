@@ -222,6 +222,40 @@ def get_one_CTFd(ctx, url, username, password, s, chall):
     challenge_info = s.get("{}/api/v1/challenges/{}".format(url, chall_id)).json()
     return challenge_info
 
+def get_one_rCTF(ctx, url, token, s, chall):
+    heads = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer null"
+    }
+    r = s.post(f"{url}/api/v1/auth/login", json={"teamToken": token}, headers=heads)
+    if "Your token is incorrect" in r.text or "badToken" in r.text:
+        raise InvalidCredentials("Invalid login credentials")
+
+    r_json = r.json()
+    bearer_token = r_json['data']['authToken']
+    heads = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36",
+        "Referer": "{}/challs".format(url),
+        "Authorization": "Bearer {}".format(bearer_token)
+    }
+
+    # Get challenge information
+    r_chals = s.get(f"{url}/api/v1/challs", headers=heads)
+    all_challs = r_chals.json()
+    chall_dict = -1
+    for c_hash in all_challs['data']:
+        if c_hash['name'].lower() == chall.lower():
+            chall_dict = c_hash
+            break
+
+    # If chall name was not found, return with error message
+    if chall_dict == -1:
+        raise InvalidCredentials("Challenge not found")
+
+    # Grab challenge file and attach in message
+    print(chall_dict)
+    return chall_dict
+
 def get_challenges_CTFd(ctx, url, username, password, s):
     r = s.get(f"{url}/login")
     try:
@@ -323,7 +357,6 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     return challenges
 
 def get_challenges_rCTF(ctx, url, token, s):
-
     heads = {
         "Content-Type": "application/json",
         "Authorization": "Bearer null"
@@ -618,8 +651,12 @@ class CTF(commands.Cog):
 
         replace_msg = ""
         if self.creds and (str(guild_name).replace(' ', '-') + "." + str(channel)) in self.creds:
-            name = self.creds[str(guild_name).replace(' ', '-') + "." + str(channel)]['user']
-            replace_msg += "Replacing **{}**'s creds".format(name)
+            if password == None:
+                name = self.creds[str(guild_name).replace(' ', '-') + "." + str(channel)]['token']
+                replace_msg += "Replacing credential token"
+            else:
+                name = self.creds[str(guild_name).replace(' ', '-') + "." + str(channel)]['user']
+                replace_msg += "Replacing **{}**'s creds".format(name)
 
         if str(ctx.message.channel.type) == "private":
             channels = {}
@@ -796,26 +833,30 @@ class CTF(commands.Cog):
                 user = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["user"]
                 password = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["pass"]
                 challenge_info = get_one_CTFd(ctx, url, user, password, s, chall)
+                challenge_info = challenge_info['data']
+                chall_value = challenge_info['value']
             elif fingerprints[1] in r.text:
-                raise InvalidProvider("rCTF functionality coming soon - cannot pull challenge.")
+                token = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["token"]
+                challenge_info = get_one_rCTF(ctx, url, token, s, chall)
+                chall_value = challenge_info['points']
             elif fingerprints[2] in r.text:
                 raise InvalidProvider("CTFx functionality coming soon - cannot pull challenge.")
             else:
                 raise InvalidProvider("CTF is not based on CTFd or rCTF - cannot pull challenge.")
 
             # Send info
-            ti = "{} ({})".format(challenge_info['data']['name'], challenge_info['data']['value'])
-            des = "{}".format(challenge_info['data']['description'])
+            ti = "{} ({})".format(challenge_info['name'], chall_value)
+            des = "{}".format(challenge_info['description'])
             emb = discord.Embed(title=ti, description=des, colour=1752220)
-            emb.add_field(name="Category", value=challenge_info['data']['category'], inline=True)
-            emb.add_field(name="Solves", value=challenge_info['data']['solves'], inline=True)
+            emb.add_field(name="Category", value=challenge_info['category'], inline=True)
+            emb.add_field(name="Solves", value=challenge_info['solves'], inline=True)
 
             # Send attachments a.nd reaction
             files = []
             m = ""
-            for i in range(len(challenge_info['data']['files'])):
-                fn = challenge_info['data']['files'][i].split('?')[0].split('/')[-1]
-                u = "{}{}".format(url, challenge_info['data']['files'][i])
+            for i in range(len(challenge_info['files'])):
+                fn = challenge_info['files'][i].split('?')[0].split('/')[-1]
+                u = "{}{}".format(url, challenge_info['files'][i])
                 contents = s.get(u).text.encode()
                 #contents = contents
                 with open(fn, 'wb') as f:
