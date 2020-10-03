@@ -132,6 +132,8 @@ def calculate(server_name, ctf_name):
                 if total_p == 0:
                     score = 0
                 else:
+                    if num_members > 9:
+                        num_members = 9
                     score = 10*(solved_p/total_p)*(1 + ctf['weight']/100)*(1 + (9 - num_members)/10)
 
                 score = ((score + curr_score)/length)
