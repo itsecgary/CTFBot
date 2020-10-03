@@ -28,7 +28,6 @@ chall_aliases = {
     "network": ["network", "networking", "network analysis", "wireshark", "rf", "pcap"],
     "mobile": ["mobile", "android", "mobile security", "apk"]
 }
-fake_var = 12
 
 #################################### METHODS ###################################
 def in_ctf_channel():
@@ -324,18 +323,25 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     return challenges
 
 def get_challenges_rCTF(ctx, url, token, s):
-    r = s.get(f"{url}/login")
-    #print(r)
-    r = s.post(f"{url}/login", data={"teamToken": token})
-    if "Your token is incorrect" in r.text:
+
+    heads = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer null"
+    }
+    r = s.post(f"{url}/api/v1/auth/login", json={"teamToken": token}, headers=heads)
+    if "Your token is incorrect" in r.text or "badToken" in r.text:
         raise InvalidCredentials("Invalid login credentials")
 
-    # Get challenge information
+    r_json = r.json()
+    bearer_token = r_json['data']['authToken']
+
     heads = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36",
-        "Referer": "https://2020.redpwn.net/challs",
-        "Authorization": "Bearer ytT+oaVylGSA5AndOlhfo6tQehRt0PKQ59KYd8Wi7n4cDmpT7/eK60WzCFBaer/vlSOuIt6NMV7P2kCRtPS+RsqnObhgnflD4Lcsrs4tROu7Qi8hrvl5KYLWp/yd"
+        "Referer": "{}/challs".format(url),
+        "Authorization": "Bearer {}".format(bearer_token)
     }
+
+    # Get challenge information
     r_chals = s.get(f"{url}/api/v1/challs", headers=heads)
     all_challs = r_chals.json()
 
@@ -343,10 +349,15 @@ def get_challenges_rCTF(ctx, url, token, s):
     r_solves = s.get(f"{url}/api/v1/users/me", headers=heads)
     team_solves = r_solves.json()
 
+    #print(all_challs)
+    #print(team_solves)
+
     # Variables
     challenges = {}
     total_points = 0
     server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+
+    print(all_challs['kind'])
 
     # Add all challenges
     if all_challs['kind'] == "goodChallenges":
@@ -501,6 +512,12 @@ class CTF(commands.Cog):
 
         # Get and parse JSON data for competition
         r_event = requests.get(link, headers=head)
+
+        # Error message when CTFTime is down and doesn't do anything
+        if r_event.status_code == 404:
+            await ctx.channel.send("CTFTime is currently down. Try again later!")
+            return
+
         event_json = r_event.json()
 
         unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
@@ -662,6 +679,12 @@ class CTF(commands.Cog):
             if url[-1] == "/": url = url[:-1]
             s = requests.session()
             r = s.get("{}/login".format(url))
+
+            # Error message when CTF site is down and then returns
+            if r.status_code == 404:
+                await ctx.channel.send("CTF site is down. Try pulling challenges when it's up!")
+                return
+
             if fingerprints[0] in r.text:
                 user = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["user"]
                 password = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["pass"]
@@ -679,6 +702,7 @@ class CTF(commands.Cog):
             server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
             server.update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
             await ctx.message.add_reaction("✅")
+            return
         except InvalidProvider as ipm:
             await ctx.send(ipm)
         except InvalidCredentials as icm:
@@ -708,8 +732,8 @@ class CTF(commands.Cog):
         elif (ctf['end'] < unix_now):
             await ctx.send("CTF is over, but I still might have chall info.")
             await CTF.pull_challs(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
-            if not ctf['calculated?']: # we only want to calculate once
-                calculate(str(ctx.guild.name), str(ctx.message.channel))
+            #if not ctf['calculated?']: # we only want to calculate once
+                #calculate(str(ctx.guild.name), str(ctx.message.channel))
         else:
             await CTF.pull_challs(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
 
@@ -721,6 +745,7 @@ class CTF(commands.Cog):
                 ctf_challenge_list = []
                 message = ""
                 message2 = ""
+                print(ctf['challenges'].items())
                 for k, v in ctf['challenges'].items():
                     if len(message) > 1500:
                         message2 = message
@@ -734,9 +759,9 @@ class CTF(commands.Cog):
                             message += "Unsolved\n"
                     message += "\n"
 
-                await ctx.send("```md\n{0}```".format(message2))
+                await ctx.send("```md\n{0}```".format(message))
                 if message2:
-                    await ctx.send("```md\n{0}```".format(message))
+                    await ctx.send("```md\n{0}```".format(message2))
             except:
                 traceback.print_exc()
 
