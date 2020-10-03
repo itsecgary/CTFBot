@@ -6,7 +6,7 @@ from config_vars import *
 import help_info
 
 ################################ DATA STRUCTURES ###############################
-bot = commands.Bot(command_prefix = '>')
+bot = commands.Bot(command_prefix = '!')
 bot.remove_command('help')
 extensions = ['rankings', 'ctftime', 'ctf']
 

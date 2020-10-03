@@ -118,10 +118,13 @@ class CtfTime(commands.Cog):
         upcoming_ep = "https://ctftime.org/api/v1/events/"
         default_image = "https://pbs.twimg.com/profile_images/2189766987/ctftime-logo-avatar_400x400.png"
         r = requests.get(upcoming_ep, headers=headers, params=amount)
-        # print("made request")
+
+        # Error message when CTFTime is down and doesn't do anything
+        if r_event.status_code == 404:
+            await ctx.channel.send("CTFTime is currently down. Try again later!")
+            return
 
         upcoming_data = r.json()
-        # print("HERE")
 
         for ctf in range(0, int(amount)):
             ctf_title = upcoming_data[ctf]["title"]
@@ -151,10 +154,10 @@ class CtfTime(commands.Cog):
 
     @ctftime.command(aliases=["leaderboard"])
     async def top(self, ctx, year = None):
-
         if not year:
             # Default to current year
             year = str(datetime.today().year)
+
         headers = {
             'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0',
         }
@@ -162,7 +165,7 @@ class CtfTime(commands.Cog):
         leaderboards = ""
         r = requests.get(top_ep, headers=headers)
         if r.status_code != 200:
-            await ctx.send("Error retrieving data, please report this with `>report \"what happened\"`")
+            await ctx.send("Error retrieving data. CTFTime may be down!")
         else:
             try:
                 top_data = (r.json())[year]
