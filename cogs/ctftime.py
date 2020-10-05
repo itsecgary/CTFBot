@@ -120,7 +120,7 @@ class CtfTime(commands.Cog):
         r = requests.get(upcoming_ep, headers=headers, params=amount)
 
         # Error message when CTFTime is down and doesn't do anything
-        if r_event.status_code == 404:
+        if r.status_code == 404:
             await ctx.channel.send("CTFTime is currently down. Try again later!")
             return
 
