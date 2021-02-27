@@ -587,6 +587,7 @@ class CTF(commands.Cog):
     @in_ctf_channel()
     async def form(self, ctx, teamname):
         servcat = "CTF"
+        teamname = teamname.replace(' ','-').lower()
         category = discord.utils.get(ctx.guild.categories, name=servcat)
         if category == None: # Checks if category exists, if it doesn't it will create it.
             await ctx.guild.create_category(name=servcat)
@@ -602,7 +603,7 @@ class CTF(commands.Cog):
 
         # Creates the team info for the database and for a role and channel
         team_info = {
-            "name": teamname.replace(' ', '-'),
+            "name": teamname,
             "members": {}
         }
 
@@ -612,23 +613,22 @@ class CTF(commands.Cog):
         teams = ctf['teams']
         teams[teamname] = team_info
 
-        server.update({'name': team_info["name"]}, {"$set": {'teams': teams}}, upsert=True)
+        server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
 
         # create role
         await ctx.guild.create_role(name=teamname, mentionable=True)
-        roles = ctx.guild.roles
-        for r in roles:
-            if r.name == teamname.replace(' ', '-').lower():
-                role = r
+        await ctx.guild.create_text_channel(name=teamname, category=category)
 
-        # Discord server stuff
-        team_name = team_info["name"]
-        overwrites = {
-            ctx.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-            ctx.guild.me: discord.PermissionOverwrite(read_messages=True),
-            role: discord.PermissionOverwrite(read_messages=True)
-        }
-        await ctx.guild.create_text_channel(name=team_name, category=category, overwrites=overwrites)
+        roles = ctx.guild.roles
+        channels = ctx.guild.channels
+        for r in roles:
+            if r.name == teamname:
+                role = r
+        for c in channels:
+            if c.name == teamname:
+                await c.set_permissions(ctx.guild.default_role, send_messages=False, read_messages=False)
+                await c.set_permissions(role, read_messages=True, send_messages=True)
+
         await ctx.message.add_reaction("✅")
 
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
@@ -636,22 +636,28 @@ class CTF(commands.Cog):
     @ctf.command()
     @in_channel()
     @in_ctf_channel()
-    async def add(self, ctx, user: discord.User, teamname):
+    async def add(self, ctx, user: discord.User, alias, teamname):
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         ctf_name = server.find_one({'name': str(ctx.message.channel)})
+        teamname = teamname.replace(' ','-').lower()
 
         # get member
-        channel = discord.utils.get(ctx.guild.channels, name=teamname.replace(' ', '-'))
+        channel = discord.utils.get(ctx.guild.channels, name=teamname)
         member = ctx.guild.get_member(user.id)
-        print(member)
 
         # get role & add role to user
         roles = ctx.guild.roles
         role = ""
         for r in roles:
-            print(r)
-            if r.name == teamname.replace(' ', '-').lower():
+            if r.name == teamname:
                 await member.add_roles(r)
+
+        # add member to team in DB
+        ctf = server.find_one({'name': str(ctx.message.channel)})
+        teams = ctf['teams']
+        member_info = { "name": str(user), "alias": alias, "solves": {} }
+        teams[teamname]['members'][str(user)] = member_info
+        server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
 
         await ctx.message.add_reaction("✅")
         await channel.send("{} has joined {}!".format(user, teamname))

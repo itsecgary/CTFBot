@@ -11,8 +11,12 @@ ctf_help = '''
 `>ctf create https://ctftime.org/event/[EVENT_ID]`
 create a text channel and role in the CTF category for a ctf (must have permissions to manage channels)*
 `>ctf join [alias]`
-user \"joins\" the ctf team for the specified channel with the *alias* being their username for CTFd.
+user \"joins\" the ctf general channel for the specific competition with the *alias* being their username for CTFd.
 the *alias* must be exactly what it is on the CTF platform
+`>ctf form [team name]`
+forms a team with specified team name (must have permissions to manage channels)*
+`>ctf add @[user] [alias] [team name]`
+adds user as specific alias to specific team (team name as shown for its channel) (must have permissions to manage channels)*
 `>ctf setcreds [ctfd username] [password] [https://ctf.url] "[server]" [channel]`
 pin the message of ctf credentials, only runnable through DM with bot in order to preserve privacy
 `>ctf challs`
