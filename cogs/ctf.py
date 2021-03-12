@@ -560,7 +560,7 @@ class CTF(commands.Cog):
             "description": event_json["description"], "start": unix_start,
             "end": unix_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours"),
             "members": {}, "calculated?": False, "logo": event_json["logo"],
-            "manual_solves": {}, "teams": {}
+            "teams": {}
         }
 
         # Update CTF DB for guild
@@ -634,46 +634,32 @@ class CTF(commands.Cog):
     @commands.has_permissions(manage_channels=True)
     @ctf.command()
     @in_channel()
-    @in_ctf_channel()
     async def disband(self, ctx):
-        teamname = ctx.message.channel
+        teamname = str(ctx.message.channel)
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-        ctf_name = server.find_one({'name': str(ctx.message.channel)})
+        ctf = server.find_one({'name': str(ctx.message.channel.category)})
+        teams = ctf['teams']
 
-        # Checks to see if team has alreasdy been formed
-        if teamname in ctf_name['teams']:
-            await ctx.send("This team has already been formed! If you wish to make a separate team, please use a different team name.")
+        # Checks if team exists
+        if teamname not in teams:
+            await ctx.send("This is not a team channel")
             return
 
-        # Creates the team info for the database and for a role and channel
-        team_info = {
-            "name": teamname,
-            "members": {}
-        }
+        del teams[teamname]
+        server.update({'name': str(ctx.message.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
+        channel = discord.utils.get(ctx.guild.text_channels, name=str(ctx.message.channel.category).lower())
+        ch = self.bot.get_channel(channel.id)
+        #print(ctx.guild.channels)
+        await ch.send(f"`{str(ctx.message.channel)}` disbanded")
 
-        # Update CTF DB for guild and for the team being made
-        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-        ctf = server.find_one({'name': str(ctx.message.channel)})
-        teams = ctf['teams']
-        teams[teamname] = team_info
-
-        server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
-
-        # create role
-        await ctx.guild.create_role(name=teamname, mentionable=True)
-        await ctx.guild.create_text_channel(name=teamname, category=category)
-
-        roles = ctx.guild.roles
-        channels = ctx.guild.channels
-        for r in roles:
-            if r.name == teamname:
-                role = r
-        for c in channels:
-            if c.name == teamname:
-                await c.set_permissions(ctx.guild.default_role, send_messages=False, read_messages=False)
-                await c.set_permissions(role, read_messages=True, send_messages=True)
-
-        await ctx.message.add_reaction("✅")
+        # remove role and channel
+        try:
+            role = discord.utils.get(ctx.guild.roles, name=teamname)
+            await role.delete()
+            await ch.send(f"`{role.name}` role deleted")
+            await ctx.channel.delete()
+        except: # role most likely already deleted with archive
+            pass
 
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     @commands.has_permissions(manage_channels=True)
@@ -698,7 +684,7 @@ class CTF(commands.Cog):
 
         # add member to team in DB
         teams = ctf['teams']
-        member_info = { "name": str(user), "alias": alias, "solves": {} }
+        member_info = { "name": str(user), "alias": alias, "solves": []}
         teams[teamname]['members'][str(user)] = member_info
         server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
 
@@ -1038,14 +1024,22 @@ class CTF(commands.Cog):
             traceback.print_exc()
 
     @ctf.command()
-    @in_ctf_channel()
+    @in_channel()
     async def solve(self, ctx, chall_name):
+        teamname = str(ctx.message.channel)
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-        manual_solves = server.find_one({'name': str(ctx.message.channel)})['manual_solves']
-        manual_solves[chall_name] = ctx.author.name
+        ctf = server.find_one({'name': str(ctx.message.channel.category)})
+        teams = ctf['teams']
 
-        ctf_info = {'name': str(ctx.message.channel), 'manual_solves': manual_solves}
-        server.update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
+        # If team doesn't exist, return message and quit
+        if teamname not in teams:
+            await ctx.send("You are only able to run this command in a team channel.")
+            return
+
+        #print(teams)
+        #print(teams[teamname])
+        teams[teamname]['members'][str(ctx.message.author)]['solves'].append(chall_name.replace(' ','-').lower())
+        server.update({'name': str(ctx.message.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
         await ctx.channel.send("{} has solved `{}`".format(ctx.author.name, chall_name))
 
 #################################### SETUP #####################################
