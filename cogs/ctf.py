@@ -290,7 +290,7 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     }
     solved_points = 0
     server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-    members = server.find_one({'name': str(ctx.message.channel)})['members']
+    members = server.find_one({'name': str(ctx.message.channel.category)})['members']
 
     # Reset points to 0
     for k, v in members.items():
@@ -355,7 +355,7 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     ctf_info = {'points': point_info, 'solved points': solved_points,
                 'rank': rank, 'members': members}
     #server.update({'name': str(ctx.message.channel)}, {"$unset": {'total points': ""}}, upsert=True)
-    server.update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
+    server.update({'name': str(ctx.message.channel.category)}, {"$set": ctf_info}, upsert=True)
     return challenges
 
 def get_challenges_rCTF(ctx, url, token, s):
@@ -603,7 +603,8 @@ class CTF(commands.Cog):
         # Creates the team info for the database and for a role and channel
         team_info = {
             "name": teamname,
-            "members": {}
+            "members": {},
+            "creds": {}
         }
 
         # Update CTF DB for guild and for the team being made
@@ -783,76 +784,65 @@ class CTF(commands.Cog):
         await ctx.send(f"{user} has left the {str(ctx.message.channel)} team.")
 
     @ctf.command()
-    async def setcreds(self, ctx, username, password, site, guild_name, channel=None):
-        if channel == None:
-            channel = guild_name
-            guild_name = site
+    @in_channel()
+    async def setcreds(self, ctx, username, password, site):
+        teamname = str(ctx.message.channel)
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+        ctf = server.find_one({'name': str(ctx.message.channel.category)})
+        teams = ctf['teams']
+
+        # Checks if team exists
+        if teamname not in teams:
+            await ctx.send("This is not a team channel")
+            return
+        creds = teams[str(ctx.message.channel)]['creds']
+
+        if site == None:
             site = password
             password = None
 
         replace_msg = ""
-        if self.creds and (str(guild_name).replace(' ', '-') + "." + str(channel)) in self.creds:
+        if creds and len(creds.keys()) > 0:
             if password == None:
-                name = self.creds[str(guild_name).replace(' ', '-') + "." + str(channel)]['token']
+                name = creds['token']
                 replace_msg += "Replacing credential token"
             else:
-                name = self.creds[str(guild_name).replace(' ', '-') + "." + str(channel)]['user']
+                name = creds['user']
                 replace_msg += "Replacing **{}**'s creds".format(name)
 
-        if str(ctx.message.channel.type) == "private":
-            channels = {}
-            for g in self.bot.guilds:
-                if g.name == guild_name:
-                    channels = g.channels
-
-            if channels:
-                channel_id = 0
-                for h in channels:
-                    if h.name == channel:
-                        channel_id = h.id
-                if not channel_id == 0:
-                    if password == None:
-                        self.creds[str(guild_name).replace(' ', '-') + "." + str(channel)] = {
-                            "token": username,
-                            "site": site
-                        }
-                        message = "CTF credentials set. \n**Token:**\t ".format(username) + \
-                              "` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
-                    else:
-                        self.creds[str(guild_name).replace(' ', '-') + "." + str(channel)] = {
-                            "user": username,
-                            "pass": password,
-                            "site": site
-                        }
-                        message = "CTF credentials set. \n**Username:**\t` {0} ` ".format(username) + \
-                              "\n**Password:**\t` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
-
-                    # Get rid of pins
-                    ch = self.bot.get_channel(channel_id)
-                    pinned = await ch.pins()
-                    for pin in pinned:
-                        if "CTF credentials set." in pin.content:
-                            await pin.unpin()
-
-                    # Send replace message if need be and send real message
-                    if not replace_msg == "":
-                        await ch.send(replace_msg)
-                    msg = await ch.send(message)
-                    await msg.pin()
-                else:
-                    await ctx.send("Channel is incorrect or doesn't exist.")
-            else:
-                await ctx.send("Guild is incorrect or doesn't exist.")
+        if password == None:
+            creds = {"token": username, "site": site}
+            message = "CTF credentials set. \n**Token:**\t ".format(username) + \
+                  "` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
         else:
-            await ctx.send("DM me to set the credentials")
+            creds = {"user": username, "pass": password, "site": site}
+            message = "CTF credentials set. \n**Username:**\t` {0} ` ".format(username) + \
+                  "\n**Password:**\t` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
+
+        teams[str(ctx.message.channel)]['creds'] = creds
+        server.update({'name': str(ctx.message.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
+
+        # Get rid of pins
+        pinned = await ctx.channel.pins()
+        for pin in pinned:
+            if "CTF credentials set." in pin.content:
+                await pin.unpin()
+
+        # Send replace message if need be and send real message
+        if not replace_msg == "":
+            await ctx.channel.send(replace_msg)
+        msg = await ctx.channel.send(message)
+        await msg.pin()
 
     @staticmethod
-    async def pull_challs(self, ctx, url):
+    async def pull_challs(self, ctx, creds):
         fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
         try:
-            if not self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]:
+            if not creds:
                 await ctx.send("Set credentials with `>ctf setcreds ...`")
                 return
+
+            url = creds["site"]
 
             if url[-1] == "/": url = url[:-1]
             s = requests.session()
@@ -864,11 +854,11 @@ class CTF(commands.Cog):
                 return
 
             if fingerprints[0] in r.text:
-                user = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["user"]
-                password = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["pass"]
+                user = creds["user"]
+                password = creds["pass"]
                 ctfd_challs = get_challenges_CTFd(ctx, url, user, password, s)
             elif fingerprints[1] in r.text:
-                token = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["token"]
+                token = self.creds["token"]
                 ctfd_challs = get_challenges_rCTF(ctx, url, token, s)
             elif fingerprints[2] in r.text:
                 # TODO - Implement CTFx functionality
@@ -893,12 +883,20 @@ class CTF(commands.Cog):
             traceback.print_exc()
 
     @ctf.command()
-    @in_ctf_channel()
+    @in_channel()
     async def challs(self, ctx):
+        teamname = str(ctx.message.channel)
         ctf_challenge_list = []
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-        ctf = server.find_one({'name': str(ctx.message.channel)})
+        ctf = server.find_one({'name': str(ctx.message.channel.category)})
         unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
+        teams = ctf['teams']
+
+        #Checks if team exists
+        if teamname not in teams:
+            await ctx.send("This is not a team channel")
+            return
+        creds = teams[str(ctx.message.channel)]['creds']
 
         if not ctf:
             await ctx.send("Please create a separate channel for this CTF")
@@ -909,16 +907,16 @@ class CTF(commands.Cog):
             return
         elif (ctf['end'] < unix_now):
             await ctx.send("CTF is over, but I still might have chall info.")
-            await CTF.pull_challs(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
+            await CTF.pull_challs(self, ctx, creds)
             #if not ctf['calculated?']: # we only want to calculate once
                 #calculate(str(ctx.guild.name), str(ctx.message.channel))
         else:
-            await CTF.pull_challs(self, ctx, self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"])
+            await CTF.pull_challs(self, ctx, creds)
 
 
         # Print challenges to chat
         if 'challenges' in ctf.keys():
-            ctf = server.find_one({'name': str(ctx.message.channel)}) # update local hash
+            ctf = server.find_one({'name': str(ctx.message.channel.category)}) # update local hash
             try:
                 ctf_challenge_list = []
                 message = ""

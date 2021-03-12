@@ -17,8 +17,8 @@ the *alias* must be exactly what it is on the CTF platform
 forms a team with specified team name (must have permissions to manage channels)*
 `>ctf add @[user] [alias] [team name]`
 adds user as specific alias to specific team (team name as shown for its channel) (must have permissions to manage channels)*
-`>ctf setcreds [ctfd username] [password] [https://ctf.url] "[server]" [channel]`
-pin the message of ctf credentials, only runnable through DM with bot in order to preserve privacy
+`>ctf setcreds [ctfd username] [password] [https://ctf.url]`
+give the bot access to your account (to grab info only) and pin the message of ctf credentials
 `>ctf challs`
 get a list of the challenges in the ctf, and their statuses. *Updates DB every time this is called*
 `>ctf pull "[chall name]"`
