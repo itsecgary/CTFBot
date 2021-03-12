@@ -533,12 +533,6 @@ class CTF(commands.Cog):
     @ctf.command()
     @in_channel()
     async def create(self, ctx, link):
-        servcat = "CTF"
-        category = discord.utils.get(ctx.guild.categories, name=servcat)
-        if category == None: # Checks if category exists, if it doesn't it will create it.
-            await ctx.guild.create_category(name=servcat)
-            category = discord.utils.get(ctx.guild.categories, name=servcat)
-
         # Parse CTFTime Link
         if link[-1] == "/": link = link[:-1]
         event_id = link.split("/")[-1]
@@ -574,8 +568,12 @@ class CTF(commands.Cog):
         server.update({'name': ctf_info["name"]}, {"$set": ctf_info}, upsert=True)
 
         # Discord server stuff
-        whitelist = set(string.ascii_letters + string.digits + ' ' + '-')
         ctf_name = ctf_info["name"]
+        if ctf_name not in [c.name for c in ctx.guild.categories]:
+            cat = await ctx.guild.create_category(ctf_name)
+            await cat.edit(position=2)
+        category = discord.utils.get(ctx.guild.categories, name=ctf_name)
+
         await ctx.guild.create_text_channel(name=ctf_name, category=category)
         await ctx.guild.create_role(name=ctf_name, mentionable=True)
         await ctx.message.add_reaction("✅")
@@ -586,11 +584,12 @@ class CTF(commands.Cog):
     @in_channel()
     @in_ctf_channel()
     async def form(self, ctx, teamname):
-        servcat = "CTF"
+        servcat = str(ctx.message.channel)
         teamname = teamname.replace(' ','-').lower()
         category = discord.utils.get(ctx.guild.categories, name=servcat)
         if category == None: # Checks if category exists, if it doesn't it will create it.
-            await ctx.guild.create_category(name=servcat)
+            cat = await ctx.guild.create_category(servcat)
+            await cat.edit(position=2)
             category = discord.utils.get(ctx.guild.categories, name=servcat)
 
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
@@ -636,9 +635,54 @@ class CTF(commands.Cog):
     @ctf.command()
     @in_channel()
     @in_ctf_channel()
-    async def add(self, ctx, user: discord.User, alias, teamname):
+    async def disband(self, ctx):
+        teamname = ctx.message.channel
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         ctf_name = server.find_one({'name': str(ctx.message.channel)})
+
+        # Checks to see if team has alreasdy been formed
+        if teamname in ctf_name['teams']:
+            await ctx.send("This team has already been formed! If you wish to make a separate team, please use a different team name.")
+            return
+
+        # Creates the team info for the database and for a role and channel
+        team_info = {
+            "name": teamname,
+            "members": {}
+        }
+
+        # Update CTF DB for guild and for the team being made
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+        ctf = server.find_one({'name': str(ctx.message.channel)})
+        teams = ctf['teams']
+        teams[teamname] = team_info
+
+        server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
+
+        # create role
+        await ctx.guild.create_role(name=teamname, mentionable=True)
+        await ctx.guild.create_text_channel(name=teamname, category=category)
+
+        roles = ctx.guild.roles
+        channels = ctx.guild.channels
+        for r in roles:
+            if r.name == teamname:
+                role = r
+        for c in channels:
+            if c.name == teamname:
+                await c.set_permissions(ctx.guild.default_role, send_messages=False, read_messages=False)
+                await c.set_permissions(role, read_messages=True, send_messages=True)
+
+        await ctx.message.add_reaction("✅")
+
+    @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
+    @commands.has_permissions(manage_channels=True)
+    @ctf.command()
+    @in_channel()
+    @in_ctf_channel()
+    async def add(self, ctx, user: discord.User, alias, teamname):
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+        ctf = server.find_one({'name': str(ctx.message.channel)})
         teamname = teamname.replace(' ','-').lower()
 
         # get member
@@ -653,7 +697,6 @@ class CTF(commands.Cog):
                 await member.add_roles(r)
 
         # add member to team in DB
-        ctf = server.find_one({'name': str(ctx.message.channel)})
         teams = ctf['teams']
         member_info = { "name": str(user), "alias": alias, "solves": {} }
         teams[teamname]['members'][str(user)] = member_info
@@ -661,6 +704,34 @@ class CTF(commands.Cog):
 
         await ctx.message.add_reaction("✅")
         await channel.send("{} has joined {}!".format(user, teamname))
+
+    @ctf.command()
+    @in_channel()
+    async def members(self, ctx, teamname):
+        server = client[str(ctx.guild.name).replace(' ', '-')]
+        ctf = server['ctfs'].find_one({'name': str(ctx.message.channel)})
+        teamname = teamname.replace(' ','-').lower()
+        if ctf == None:
+            ctf = server['ctfs'].find_one({'name': str(ctx.message.channel.category)})
+            if ctf == None:
+                await ctx.channel.send("Run this command under the specific competition category")
+                return
+
+        if teamname not in ctf['teams']:
+            await ctx.channel.send("This team does not exist!")
+            return
+
+        # add member to team in DB
+        member_list = ctf['teams'][teamname]['members']
+        print(member_list)
+        for m in member_list:
+            member = server['members'].find_one({'name': m})
+            ti = member_list[m]['alias']
+            des = "Overall: {}".format(member['overall'])
+            emb = discord.Embed(title=ti, description=des, colour=1752220)
+            emb.add_field(name="Solves: ", value=member_list[m]['solves'], inline=True)
+            emb.set_thumbnail(url=member['pfp'])
+            await ctx.channel.send(embed=emb)
 
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     @commands.has_permissions(manage_channels=True)
