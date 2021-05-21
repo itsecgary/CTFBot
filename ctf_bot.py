@@ -6,7 +6,9 @@ from config_vars import *
 import help_info
 
 ################################ DATA STRUCTURES ###############################
-bot = commands.Bot(command_prefix = '!')
+intents = discord.Intents.default()
+intents.members = True
+bot = commands.Bot(command_prefix = '!', intents=intents)
 bot.remove_command('help')
 extensions = ['rankings', 'ctftime', 'ctf']
 

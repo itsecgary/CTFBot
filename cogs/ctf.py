@@ -442,9 +442,9 @@ class CTF(commands.Cog):
         self.bot = bot
         self.creds = {} # Stores credentials locally (not in database)
         self.current = [] # Stores started ctfs
-        self.get_info.start()
+        #self.get_info.start()
 
-    @tasks.loop(minutes=1.0)
+    #@tasks.loop(minutes=1.0)
     async def get_info(self):
         unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
 
@@ -618,9 +618,11 @@ class CTF(commands.Cog):
         # create role
         await ctx.guild.create_role(name=teamname, mentionable=True)
         await ctx.guild.create_text_channel(name=teamname, category=category)
+        await ctx.guild.create_voice_channel(name=teamname, category=category)
 
         roles = ctx.guild.roles
         channels = ctx.guild.channels
+        voice_channels = ctx.guild.voice_channels
         for r in roles:
             if r.name == teamname:
                 role = r
@@ -628,6 +630,10 @@ class CTF(commands.Cog):
             if c.name == teamname:
                 await c.set_permissions(ctx.guild.default_role, send_messages=False, read_messages=False)
                 await c.set_permissions(role, read_messages=True, send_messages=True)
+        for vc in voice_channels:
+            if vc.name == teamname:
+                await vc.set_permissions(ctx.guild.default_role, send_messages=False, read_messages=False)
+                await vc.set_permissions(role, read_messages=True, send_messages=True)
 
         await ctx.message.add_reaction("✅")
 
@@ -658,7 +664,12 @@ class CTF(commands.Cog):
             role = discord.utils.get(ctx.guild.roles, name=teamname)
             await role.delete()
             await ch.send(f"`{role.name}` role deleted")
-            await ctx.channel.delete()
+            existing_vchannel = discord.utils.get(ctx.guild.voice_channels, name=teamname)
+            existing_channel = discord.utils.get(ctx.guild.channels, name=teamname)
+            if existing_channel is not None:
+                await existing_channel.delete()
+            if existing_vchannel is not None:
+                await existing_vchannel.delete()
         except: # role most likely already deleted with archive
             pass
 
