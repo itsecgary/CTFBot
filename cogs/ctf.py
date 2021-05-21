@@ -751,6 +751,7 @@ class CTF(commands.Cog):
     @ctf.command()
     @in_ctf_channel()
     async def archive(self, ctx):
+        ctfname = str(ctx.message.channel)
         role = discord.utils.get(ctx.guild.roles, name=str(ctx.message.channel))
         await role.delete()
         await ctx.send(f"`{role.name}` role deleted, archiving channel.")
@@ -761,6 +762,19 @@ class CTF(commands.Cog):
             await ctx.guild.create_category(name=servarchive)
             category = discord.utils.get(ctx.guild.categories, name=servarchive)
         await ctx.message.channel.edit(syncpermissions=True, category=category)
+
+        # delete all channels in category
+        for channel in ctx.guild.channels:
+            if str(channel.category).lower() == ctfname.lower():
+                await channel.delete()
+        # delete all voice channels in category
+        for vc in ctx.guild.voice_channels:
+            if str(vc.category).lower() == ctfname.lower():
+                await vc.delete()
+        # delete category
+        for cat in ctx.guild.categories:
+            if str(cat.name).lower() == ctfname.lower():
+                await cat.delete()
 
     @commands.bot_has_permissions(manage_roles=True)
     @ctf.command()
