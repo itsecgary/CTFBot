@@ -533,6 +533,14 @@ class CTF(commands.Cog):
     @ctf.command()
     @in_channel()
     async def create(self, ctx, link):
+        # If general competition not on ctftime
+        if not ("https://ctftime.org" in str(link)):
+            category = discord.utils.get(ctx.guild.categories, name="CTF")
+            await ctx.guild.create_text_channel(name=str(link), category=category)
+            await ctx.guild.create_role(name=str(link), mentionable=True)
+            await ctx.message.add_reaction("✅")
+            return
+
         # Parse CTFTime Link
         if link[-1] == "/": link = link[:-1]
         event_id = link.split("/")[-1]
@@ -570,8 +578,11 @@ class CTF(commands.Cog):
         # Discord server stuff
         ctf_name = ctf_info["name"]
         if ctf_name not in [c.name for c in ctx.guild.categories]:
+            print(ctx.guild.categories)
             cat = await ctx.guild.create_category(ctf_name)
-            await cat.edit(position=2)
+            length = len(ctx.guild.categories)
+            await cat.edit(position=length-2)
+            print(ctx.guild.categories)
         category = discord.utils.get(ctx.guild.categories, name=ctf_name)
 
         await ctx.guild.create_text_channel(name=ctf_name, category=category)
