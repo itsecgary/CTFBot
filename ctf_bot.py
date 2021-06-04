@@ -2,6 +2,9 @@ import discord
 import os
 from discord.ext import commands, tasks
 from itertools import cycle
+import os
+import tarfile
+from datetime import date
 from config_vars import *
 import help_info
 
@@ -102,6 +105,30 @@ async def help(ctx, page=None):
         emb = discord.Embed(description=help_info.help_page, colour=10181046)
         emb.set_author(name='CTFBot Help')
     await ctx.channel.send(embed=emb)
+
+@bot.command()
+async def deep_archive(ctx):
+    for channel in ctx.guild.channels:
+        if str(channel.category).lower() == "archive":
+            print(f'Deep Archiving channel: {channel}')
+            filename = f"./tmp/{channel.name}.txt"
+            # export all messages
+            counter = 0
+            with open(filename, "x") as file:
+                async for msg in ctx.channel.history(limit=None):
+                    file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
+                    for a in msg.attachments:
+                        a.save(f"./tmp/{a.filename}-{counter}")
+                        counter += 1
+
+            # combine into tar.gz
+            d4 = today.strftime("%b-%d-%Y")
+            with tarfile.open(f"./archived/archived-{d4}", "w:gz") as tar_handle:
+                for root, dirs, files in os.walk("./tmp/"):
+                    for file in files:
+                        tar_handle.add(os.path.join(root, file))
+
+            await channel.delete()
 
 def add_member(member, guild):
     server = client[str(guild.name).replace(' ', '-')]
