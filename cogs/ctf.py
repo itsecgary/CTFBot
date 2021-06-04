@@ -548,7 +548,7 @@ class CTF(commands.Cog):
         head = {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0'}
 
         # Get and parse JSON data for competition
-        r_event = requests.get(link, headers=head)
+        r_event = requests.get(url=link, headers=head)
 
         # Error message when CTFTime is down and doesn't do anything
         if r_event.status_code == 404:
