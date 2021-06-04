@@ -114,7 +114,7 @@ async def deep_archive(ctx):
             filename = f"./tmp/{channel.name}.txt"
             # export all messages
             counter = 0
-            with open(filename, "x") as file:
+            with open(filename, "w+") as file:
                 async for msg in ctx.channel.history(limit=None):
                     file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
                     for a in msg.attachments:
