@@ -685,12 +685,6 @@ class CTF(commands.Cog):
                 if (c.name.lower() == teamname.lower()) and (c.category.lower() == ctf.lower()):
                     await c.delete()
                     break
-            existing_vchannel = discord.utils.find(, name=teamname, category=ctf.upper())
-            existing_channel = discord.utils.find(ctx.guild.channels, name=teamname, category=ctf.upper())
-            if existing_channel is not None:
-                await existing_channel.delete()
-            if existing_vchannel is not None:
-                await existing_vchannel.delete()
         except: # role most likely already deleted with archive
             pass
 
