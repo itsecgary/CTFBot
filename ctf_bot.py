@@ -122,6 +122,7 @@ async def deep_archive(ctx):
                         counter += 1
 
             # combine into tar.gz
+            today = date.today()
             d4 = today.strftime("%b-%d-%Y")
             with tarfile.open(f"./archived/archived-{d4}", "w:gz") as tar_handle:
                 for root, dirs, files in os.walk("./tmp/"):
