@@ -681,13 +681,13 @@ class CTF(commands.Cog):
                 print(vc.name)
                 print(vc.category)
                 if (vc.name == teamname) and (vc.category == str(ctx.message.channel.category)):
-                    await vc.delete()
+                    await self.bot.get_channel(vc.id)
                     break
             for c in ctx.guild.channels:
                 print(c.name)
                 print(c.category)
                 if (c.name == teamname) and (c.category == str(ctx.message.channel.category)):
-                    await c.delete()
+                    await self.bot.get_channel(c.id)
                     break
         except: # role most likely already deleted with archive
             pass
