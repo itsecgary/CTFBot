@@ -778,17 +778,14 @@ class CTF(commands.Cog):
         # delete all channels in category
         for channel in ctx.guild.channels:
             if str(channel.category).lower() == ctfname.lower():
-                print(f'Deleting channel: {channel}')
                 await channel.delete()
         # delete all voice channels in category
         for vc in ctx.guild.voice_channels:
             if str(vc.category).lower() == ctfname.lower():
-                print(f'Deleting channel: {channel}')
                 await vc.delete()
         # delete category
         for cat in ctx.guild.categories:
             if str(cat.name).lower() == ctfname.lower():
-                print(f'Deleting channel: {channel}')
                 await cat.delete()
 
     @commands.bot_has_permissions(manage_roles=True)
