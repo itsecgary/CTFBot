@@ -677,13 +677,13 @@ class CTF(commands.Cog):
             await ch.send(f"`{role.name}` role deleted")
             print(teamname.lower())
             print(str(ctx.message.channel.category).lower())
-            print(vc.name.lower())
-            print(c.name.lower())
             for vc in ctx.guild.voice_channels:
+                print(vc.name.lower())
                 if (vc.name.lower() == teamname.lower()) and (vc.category.lower() == str(ctx.message.channel.category).lower()):
                     await vc.delete()
                     break
             for c in ctx.guild.channels:
+                print(c.name.lower())
                 if (c.name.lower() == teamname.lower()) and (c.category.lower() == str(ctx.message.channel.category).lower()):
                     await c.delete()
                     break
