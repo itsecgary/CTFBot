@@ -675,8 +675,8 @@ class CTF(commands.Cog):
             role = discord.utils.get(ctx.guild.roles, name=teamname)
             await role.delete()
             await ch.send(f"`{role.name}` role deleted")
-            existing_vchannel = discord.utils.get(ctx.guild.voice_channels, name=teamname)
-            existing_channel = discord.utils.get(ctx.guild.channels, name=teamname)
+            existing_vchannel = discord.utils.get(ctx.guild.voice_channels, name=teamname, category=ctf.upper())
+            existing_channel = discord.utils.get(ctx.guild.channels, name=teamname, category=ctf.upper())
             if existing_channel is not None:
                 await existing_channel.delete()
             if existing_vchannel is not None:
