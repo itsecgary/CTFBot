@@ -118,7 +118,7 @@ async def deep_archive(ctx):
                 async for msg in ctx.channel.history(limit=None):
                     file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
                     for a in msg.attachments:
-                        a.save(f"./tmp/{a.filename}-{counter}")
+                        await a.save(f"./tmp/{a.filename}-{counter}")
                         counter += 1
 
             # combine into tar.gz

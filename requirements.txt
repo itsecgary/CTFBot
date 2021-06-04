@@ -1,2 +1,4 @@
 pymongo
 dnspython
+discord
+requests
