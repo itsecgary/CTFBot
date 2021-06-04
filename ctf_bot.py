@@ -118,17 +118,18 @@ async def deep_archive(ctx):
                 async for msg in ctx.channel.history(limit=None):
                     file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
                     for a in msg.attachments:
-                        await a.save(f"./tmp/{a.filename}-{counter}")
+                        await a.save(f"./tmp/{channel.name}-{a.filename}-{counter}")
                         counter += 1
 
             # combine into tar.gz
             today = date.today()
-            d4 = today.strftime("%b-%d-%Y")
-            with tarfile.open(f"./archived/archived-{d4}", "w:gz") as tar_handle:
+            d4 = today.strftime("%b-%d-%Y_%H-%M-%S")
+            with tarfile.open(f"./archived/archived-{d4}.tar.gz", "w:gz") as tar_handle:
                 for root, dirs, files in os.walk("./tmp/"):
                     for file in files:
                         tar_handle.add(os.path.join(root, file))
 
+            os.system("rm ./tmp/*")
             await channel.delete()
 
 def add_member(member, guild):
