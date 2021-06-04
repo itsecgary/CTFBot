@@ -675,16 +675,18 @@ class CTF(commands.Cog):
             role = discord.utils.get(ctx.guild.roles, name=teamname)
             await role.delete()
             await ch.send(f"`{role.name}` role deleted")
-            print(teamname.lower())
-            print(str(ctx.message.channel.category).lower())
+            print(teamname)
+            print(str(ctx.message.channel.category))
             for vc in ctx.guild.voice_channels:
-                print(vc.name.lower())
-                if (vc.name.lower() == teamname.lower()) and (vc.category.lower() == str(ctx.message.channel.category).lower()):
+                print(vc.name)
+                print(vc.category)
+                if (vc.name == teamname) and (vc.category == str(ctx.message.channel.category)):
                     await vc.delete()
                     break
             for c in ctx.guild.channels:
-                print(c.name.lower())
-                if (c.name.lower() == teamname.lower()) and (c.category.lower() == str(ctx.message.channel.category).lower()):
+                print(c.name)
+                print(c.category)
+                if (c.name == teamname) and (c.category == str(ctx.message.channel.category)):
                     await c.delete()
                     break
         except: # role most likely already deleted with archive
