@@ -676,13 +676,13 @@ class CTF(commands.Cog):
             await role.delete()
             await ch.send(f"`{role.name}` role deleted")
             print(teamname.lower())
-            print(ctf.lower())
+            print(str(ctx.message.channel.category).lower())
             for vc in ctx.guild.voice_channels:
-                if (vc.name.lower() == teamname.lower()) and (vc.category.lower() == ctf.lower()):
+                if (vc.name.lower() == teamname.lower()) and (vc.category.lower() == str(ctx.message.channel.category).lower()):
                     await vc.delete()
                     break
             for c in ctx.guild.voice_channels:
-                if (c.name.lower() == teamname.lower()) and (c.category.lower() == ctf.lower()):
+                if (c.name.lower() == teamname.lower()) and (c.category.lower() == str(ctx.message.channel.category).lower()):
                     await c.delete()
                     break
         except: # role most likely already deleted with archive
