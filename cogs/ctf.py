@@ -768,7 +768,7 @@ class CTF(commands.Cog):
         role = discord.utils.get(ctx.guild.roles, name=str(ctx.message.channel))
         if role != None:
             await role.delete()
-        await ctx.send(f"`{role.name}` role deleted, archiving channel.")
+            await ctx.send(f"`{role.name}` role deleted, archiving channel.")
         servarchive = "ARCHIVE"
         category = discord.utils.get(ctx.guild.categories, name=servarchive)
 
