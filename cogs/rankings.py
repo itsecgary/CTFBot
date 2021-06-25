@@ -66,6 +66,7 @@ class Leaderboard(commands.Cog):
         year = int(datetime.date.today().year)
         month = int(datetime.date.today().month)
         day = int(datetime.date.today().day)
+        print(f'Updating Leaderboards - {month}/{day}/{year}')
 
         # If after August 22, add leaderboard for upcoming school year
         if int(month) == 8 and int(day) > 22:

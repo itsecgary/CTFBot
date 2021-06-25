@@ -112,48 +112,42 @@ def calculate(server_name, ctf_name):
     ctf = server['ctfs'].find_one({'name': ctf_name})
     num_members = len(ctf['members'].keys())
 
-    # Calculate scores for each member of competition
+    # Calculate numerators and denominators for each member of competition
     for name, mem_points in ctf['members'].items():
-        # Add CTF to competed CTFs
+        # Add CTF to competed CTFs in member profile
         member = members.find_one({'name': name})
         arr = member['ctfs_competed']
         if arr == []:
             arr = [ctf_name]
         else:
             arr.append(ctf_name)
-        length = len(arr)
 
-        # Calculate each category
+        # Calculate each category numerator and denominator
+        length = len(arr)
+        ratings = member['ratings']
         for cat, val in mem_points.items():
             if not (cat == "alias") and not (ctf['points'][cat] == 0):
-                solved_p = val
-                total_p = ctf['points'][cat]
-                curr_score = member['ratings'][cat] * (length-1)
-                if total_p == 0:
-                    score = 0
-                else:
-                    if num_members > 9:
-                        num_members = 9
-                    score = 10*(solved_p/total_p)*(1 + ctf['weight']/100)*(1 + (9 - num_members)/10)
+                solved_points = val
+                total_points = ctf['points'][cat]
+                weight = ctf['weight']
+                numerator = solved_points*weight
+                denominator = total_points*weight
+                ratings[cat]['numerator'] = ratings[cat]['numerator'] + numerator
+                ratings[cat]['denominator'] = ratings[cat]['denominator'] + denominator
+                ratings[cat]['score'] = ratings[cat]['numerator'] / ratings[cat]['denominator']
 
-                score = ((score + curr_score)/length)
-                if score == 0:
-                    score = int(score)
-                else:
-                    score = score + ((length)/50)
-                member['ratings'][cat] = score
 
         # Calculate overall
         overall = 0
         for cat, val in member['ratings'].items():
             overall += val
-        overall = overall/len(member['ratings'].values())
+        overall = overall / len(member['ctfs_compteted'])
 
         # Update member's DB and set boolean to True
-        server['members'].update({'name': name}, {"$set": {'overall': overall, 'ratings': member['ratings'], 'ctfs_competed': arr}}, upsert=True)
+        members.update({'name': name}, {"$set": {'overall': overall, 'ratings': member['ratings'], 'ctfs_competed': arr}}, upsert=True)
         server['ctfs'].update({'name': ctf_name}, {"$set": {'calculated?': True}}, upsert=True)
 
-    # add overall to rankings
+    # Create overall rankings
     rankings = {}
     overall_r = []
     already_got = []
@@ -168,7 +162,7 @@ def calculate(server_name, ctf_name):
         overall_r.append({'name': p['name'], 'score': p['overall']})
     rankings['overall'] = overall_r
 
-    # add each CTF category to rankings
+    # Create rankings for each category
     for cat in chall_aliases.keys():
         arr = []
         already_got = []
@@ -176,11 +170,11 @@ def calculate(server_name, ctf_name):
             highest = -1
             p = None
             for person in members.find():
-                if person['ratings'][cat] > highest and not person['name'] in already_got:
-                    highest = person['ratings'][cat]
+                if person['ratings'][cat]['score'] > highest and not person['name'] in already_got:
+                    highest = person['ratings'][cat]['score']
                     p = person
             already_got.append(p['name'])
-            arr.append({'name': p['name'], 'score': p['ratings'][cat]})
+            arr.append({'name': p['name'], 'score': p['ratings'][cat]['score']})
         rankings[cat] = arr
 
     # Update Guild Information

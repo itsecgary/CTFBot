@@ -135,15 +135,16 @@ async def deep_archive(ctx):
 def add_member(member, guild):
     server = client[str(guild.name).replace(' ', '-')]
     members = server['members']
+    rs = {'numerator': 0, 'denominator': 0, 'score': 0}
     member_info = {
         "name": member.name + '#' + member.discriminator,
         "overall": 0,
         "ctfs_competed": [],
         "pfp": str(member.avatar_url),
         "ratings": {
-            "crypto": 0, "forensics": 0, "reversing": 0, "osint": 0,
-            "network": 0, "tryhackme": 0, "misc": 0, "mobile": 0,
-            "cryptocurrency": 0, "web exploitation": 0, "binary exploitation": 0
+            "crypto": rs, "forensics": rs, "reversing": rs, "osint": rs,
+            "network": rs, "tryhackme": rs, "misc": rs, "mobile": rs,
+            "cryptocurrency": rs, "web exploitation": rs, "binary exploitation": rs
         }
     }
     m = members.find_one({'name': member_info['name']})
