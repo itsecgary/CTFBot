@@ -60,47 +60,48 @@ class Leaderboard(commands.Cog):
 
     @tasks.loop(minutes=1440.0)
     async def update_leaderboard(self):
-        server = client[str(ctx.guild.name).replace(' ', '-')]
-        lbs = server['leaderboards']
-        info_db = server['info']
-        year = int(datetime.date.today().year)
-        month = int(datetime.date.today().month)
-        day = int(datetime.date.today().day)
-        print(f'Updating Leaderboards - {month}/{day}/{year}')
+        for guild in self.bot.guilds:
+            server = client[str(guild.name).replace(' ', '-')]
+            lbs = server['leaderboards']
+            info_db = server['info']
+            year = int(datetime.date.today().year)
+            month = int(datetime.date.today().month)
+            day = int(datetime.date.today().day)
+            print(f'Updating Leaderboards - {month}/{day}/{year}')
 
-        # If after August 22, add leaderboard for upcoming school year
-        if int(month) == 8 and int(day) > 22:
-            name = f'{year}-{int(year)+1} School Year'
-            lb = lbs.find_one({'name': name})
-            if lb == None:
-                lb_info = {"name": name, "current": True, "rankings": info_db['rankings']}
+            # If after August 22, add leaderboard for upcoming school year
+            if int(month) == 8 and int(day) > 22:
+                name = f'{year}-{int(year)+1} School Year'
+                lb = lbs.find_one({'name': name})
+                if lb == None:
+                    lb_info = {"name": name, "current": True, "rankings": info_db['rankings']}
 
-                # Finalize old leaderboard
-                name_OLD = f'{int(year)-1}-{year} School Year'
-                lb_info_OLD = {"name": name_OLD, "current": False, "rankings": info_db['rankings']}
-                lbs.update({'name': name_OLD}, {"$set": lb_info_OLD}, upsert=True)
+                    # Finalize old leaderboard
+                    name_OLD = f'{int(year)-1}-{year} School Year'
+                    lb_info_OLD = {"name": name_OLD, "current": False, "rankings": info_db['rankings']}
+                    lbs.update({'name': name_OLD}, {"$set": lb_info_OLD}, upsert=True)
 
-                # Clear rankings under info
-                server_info = {'ranking': {}, 'competitions': [], 'num competitions': 0}
-                info_db.update({'name': server_name}, {"$set": server_info}, upsert=True)
-            else: # update leaderboards if already exists
-                lb['ranking'] = server['info']['rankings']
-                lb_info = lb
+                    # Clear rankings under info
+                    server_info = {'ranking': {}, 'competitions': [], 'num competitions': 0}
+                    info_db.update({'name': server_name}, {"$set": server_info}, upsert=True)
+                else: # update leaderboards if already exists
+                    lb['ranking'] = server['info']['rankings']
+                    lb_info = lb
 
-        # Else If leaderboard from previous year doesn't exist, make it!
-        elif (int(month) < 8) or (int(month) == 8 and int(day) <= 22):
-            name = f'{int(year)-1}-{year} School Year'
-            lb = server['leaderboards'].find_one({'name': name})
+            # Else If leaderboard from previous year doesn't exist, make it!
+            elif (int(month) < 8) or (int(month) == 8 and int(day) <= 22):
+                name = f'{int(year)-1}-{year} School Year'
+                lb = server['leaderboards'].find_one({'name': name})
 
-            # If current school year leaderboard isn't up, make it
-            # Else update it
-            if lb == None:
-                lb_info = {"name": name, "current": True, "rankings": server['info']['rankings']}
-            else:
-                lb['ranking'] = server['info']['rankings']
-                lb_info = lb
+                # If current school year leaderboard isn't up, make it
+                # Else update it
+                if lb == None:
+                    lb_info = {"name": name, "current": True, "rankings": server['info']['rankings']}
+                else:
+                    lb['ranking'] = server['info']['rankings']
+                    lb_info = lb
 
-        lbs.update({'name': name}, {"$set": lb_info}, upsert=True)
+            lbs.update({'name': name}, {"$set": lb_info}, upsert=True)
 
     @commands.group()
     async def rank(self, ctx):
