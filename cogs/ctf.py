@@ -821,7 +821,7 @@ class CTF(commands.Cog):
     async def setcreds(self, ctx, username, password, site):
         teamname = str(ctx.message.channel)
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-        ctf = server.find_one({'name': str(ctx.message.channel.category)})
+        ctf = server.find_one({'name': str(ctx.channel.category)})
         teams = ctf['teams']
 
         # Checks if team exists
@@ -853,7 +853,7 @@ class CTF(commands.Cog):
                   "\n**Password:**\t` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
 
         teams[str(ctx.message.channel)]['creds'] = creds
-        server.update({'name': str(ctx.message.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
+        server.update({'name': str(ctx.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
 
         # Get rid of pins
         pinned = await ctx.channel.pins()
@@ -899,9 +899,9 @@ class CTF(commands.Cog):
             else:
                 raise InvalidProvider("CTF is not based on CTFd or rCTF - cannot pull challenges.")
 
-            ctf_info = {'name': str(ctx.message.channel), 'challenges': ctfd_challs}
+            ctf_info = {'name': str(ctx.channel.category).lower(), 'challenges': ctfd_challs}
             server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-            server.update({'name': str(ctx.message.channel)}, {"$set": ctf_info}, upsert=True)
+            server.update({'name': str(ctx.channel.category).lower()}, {"$set": ctf_info}, upsert=True)
             await ctx.message.add_reaction("✅")
             return
         except InvalidProvider as ipm:
@@ -921,7 +921,7 @@ class CTF(commands.Cog):
         teamname = str(ctx.message.channel)
         ctf_challenge_list = []
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-        ctf = server.find_one({'name': str(ctx.message.channel.category)})
+        ctf = server.find_one({'name': str(ctx.channel.category).lower()})
         unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
         teams = ctf['teams']
 
@@ -941,15 +941,15 @@ class CTF(commands.Cog):
         elif (ctf['end'] < unix_now):
             await ctx.send("CTF is over, but I still might have chall info.")
             await CTF.pull_challs(self, ctx, creds)
-            #if not ctf['calculated?']: # we only want to calculate once
-                #calculate(str(ctx.guild.name), str(ctx.message.channel))
+            if not ctf['calculated?']: # we only want to calculate once
+                calculate(str(ctx.guild.name), str(ctx.channel.category).lower())
         else:
             await CTF.pull_challs(self, ctx, creds)
 
 
         # Print challenges to chat
         if 'challenges' in ctf.keys():
-            ctf = server.find_one({'name': str(ctx.message.channel.category)}) # update local hash
+            ctf = server.find_one({'name': str(ctx.channel.category).lower()}) # update local hash
             try:
                 ctf_challenge_list = []
                 message = ""
@@ -975,13 +975,15 @@ class CTF(commands.Cog):
                 traceback.print_exc()
 
     @ctf.command()
-    @in_ctf_channel()
+    @in_channel()
     async def pull(self, ctx, chall):
         fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
-        url = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["site"]
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-        ctf = server.find_one({'name': str(ctx.message.channel)})
+        ctf = server.find_one({'name': str(ctx.channel.category)})
+        teams = ctf['teams']
         unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
+        creds = teams[str(ctx.message.channel)]['creds']
+        url = creds["site"]
 
         if not ctf:
             await ctx.send("Please create a separate channel for this CTF")
@@ -994,7 +996,7 @@ class CTF(commands.Cog):
 
         # Get challenge info
         try:
-            if not self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]:
+            if not creds:
                 await ctx.send("Set credentials with `>ctf setcreds ...`")
                 return
 
@@ -1002,13 +1004,13 @@ class CTF(commands.Cog):
             s = requests.session()
             r = s.get("{}/login".format(url))
             if fingerprints[0] in r.text:
-                user = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["user"]
-                password = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["pass"]
+                user = creds["user"]
+                password = creds["pass"]
                 challenge_info = get_one_CTFd(ctx, url, user, password, s, chall)
                 challenge_info = challenge_info['data']
                 chall_value = challenge_info['value']
             elif fingerprints[1] in r.text:
-                token = self.creds[str(ctx.guild.name).replace(' ', '-') + "." + str(ctx.message.channel)]["token"]
+                token = creds["token"]
                 challenge_info = get_one_rCTF(ctx, url, token, s, chall)
                 chall_value = challenge_info['points']
             elif fingerprints[2] in r.text:
