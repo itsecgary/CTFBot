@@ -773,13 +773,6 @@ class CTF(commands.Cog):
         if role != None:
             await role.delete()
             await ctx.send(f"`{role.name}` role deleted, archiving channel.")
-        #servarchive = "ARCHIVE"
-        #category = discord.utils.get(ctx.guild.categories, name=servarchive)
-
-        #if category == None: # Checks if category exists, if it doesn't it will create it.
-    #        await ctx.guild.create_category(name=servarchive)
-#            category = discord.utils.get(ctx.guild.categories, name=servarchive)
-#        await ctx.message.channel.edit(syncpermissions=True, category=category)
 
         print(f'Deep Archiving channel: {ctfname}')
         filename = f"./tmp/{ctfname}.txt"
