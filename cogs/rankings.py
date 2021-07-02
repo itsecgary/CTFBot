@@ -20,9 +20,6 @@ thumbnails = {
     "binary exploitation": "https://pbs.twimg.com/profile_images/1103593041766637568/aMkvIaLy.png",
     "reversing": "https://i.pinimg.com/originals/36/0e/24/360e24a8f599ea38bd1f1875d4890632.jpg",
     "tryhackme": "https://pbs.twimg.com/profile_images/1192912844297297920/73n4_SvJ_400x400.jpg",
-    "cryptocurrency": "https://cdn.dnaindia.com/sites/default/files/styles/full/public/2020/04/10/901440-cryptocurrency.jpg",
-    "network": "https://www.pngkit.com/png/detail/365-3657626_wireshark-icon.png",
-    "mobile": "https://dwkujuq9vpuly.cloudfront.net/news/wp-content/uploads/2020/03/Android-main.jpg",
     "overall": "https://www.cbtnuggets.com/blog/wp-content/uploads/2019/10/10684-1024x575.jpg"
 }
 
@@ -56,52 +53,53 @@ def place(pl):
 class Leaderboard(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.update_leaderboard.start()
+        self.archive_leaderboard.start()
 
     @tasks.loop(minutes=1440.0)
-    async def update_leaderboard(self):
+    async def archive_leaderboard(self):
         for guild in self.bot.guilds:
-            server = client[str(guild.name).replace(' ', '-')]
-            lbs = server['leaderboards']
+            server_name = str(guild.name).replace(' ', '-')
+            server = client[server_name]
+            lbs = server['archived_leaderboards']
             info_db = server['info']
             year = int(datetime.date.today().year)
             month = int(datetime.date.today().month)
             day = int(datetime.date.today().day)
             print(f'Updating Leaderboards - {month}/{day}/{year}')
 
-            # If after August 22, add leaderboard for upcoming school year
-            if int(month) == 8 and int(day) > 22:
-                name = f'{year}-{int(year)+1} School Year'
-                lb = lbs.find_one({'name': name})
-                if lb == None:
-                    lb_info = {"name": name, "current": True, "rankings": info_db['rankings']}
+            name = ""
+            name2 = ""
+            cleared = {}
+            if int(month) == 8 and int(day) == 24:
+                name = f'Summer-{year}'
+                lb_info = {"name": name, "rankings": info_db['rankings_semester']}
+                cleared = {"competitons_semester": [], "rankings_semester": {},
+                           "competitons_year": [], "rankings_year": {}}
+            elif int(month) == 12 and int(day) == 24:
+                name = f'Fall-{year}'
+                lb_info = {"name": name, "rankings": info_db['rankings_semester']}
+                cleared = {"competitons_semester": [],"rankings_semester": {}}
+            elif int(month) == 1 and int(day) == 31:
+                name = f'Winter-{year-1}-{year}'
+                lb_info = {"name": name, "rankings": info_db['rankings_semester']}
+                cleared = {"competitons_semester": [], "rankings_semester": {}}
+            elif int(month) == 5 and int(day) == 24:
+                name = f'Spring-{year}'
+                name2 = f'Year-{year-1}-{year}'
+                lb_info = {"name": name, "rankings": info_db['rankings_semester']}
+                lb_info2 = {"name": name2, "rankings": info_db['rankings_year']}
+                cleared = {"competitons_semester": [], "rankings_semester": {},
+                           "competitons_year": [], "rankings_year": {}}
+            else:
+                name = "All-Time"
+                lb_info = {"name": name, "rankings": info_db['rankings_overall']}
 
-                    # Finalize old leaderboard
-                    name_OLD = f'{int(year)-1}-{year} School Year'
-                    lb_info_OLD = {"name": name_OLD, "current": False, "rankings": info_db['rankings']}
-                    lbs.update({'name': name_OLD}, {"$set": lb_info_OLD}, upsert=True)
-
-                    # Clear rankings under info
-                    server_info = {'ranking': {}, 'competitions': [], 'num competitions': 0}
-                    info_db.update({'name': server_name}, {"$set": server_info}, upsert=True)
-                else: # update leaderboards if already exists
-                    lb['ranking'] = server['info']['rankings']
-                    lb_info = lb
-
-            # Else If leaderboard from previous year doesn't exist, make it!
-            elif (int(month) < 8) or (int(month) == 8 and int(day) <= 22):
-                name = f'{int(year)-1}-{year} School Year'
-                lb = server['leaderboards'].find_one({'name': name})
-
-                # If current school year leaderboard isn't up, make it
-                # Else update it
-                if lb == None:
-                    lb_info = {"name": name, "current": True, "rankings": server['info']['rankings']}
-                else:
-                    lb['ranking'] = server['info']['rankings']
-                    lb_info = lb
-
-            lbs.update({'name': name}, {"$set": lb_info}, upsert=True)
+            if len(name) > 0:
+                lbs.update({'name': name}, {"$set": lb_info}, upsert=True)
+            if len(name2) > 0:
+                lbs.update({'name': name2}, {"$set": lb_info2}, upsert=True)
+            if len(cleared.keys()) > 0:
+                info_db.update({'name': server_name}, {"$set": cleared}, upsert=True)
 
     @commands.group()
     async def rank(self, ctx):
@@ -115,20 +113,22 @@ class Leaderboard(commands.Cog):
         server = client[str(ctx.guild.name).replace(' ', '-')]
         member = server['members'].find_one({'name': str(name)})
 
-        if (server['info'].find_one({'name': str(ctx.guild.name)})['ranking'] == {}):
+        if (server['info'].find_one({'name': str(ctx.guild.name)})['rankings_semester'] == {}):
             count = 0
         else:
             count = 1
-            for r in server['info'].find_one({'name': str(ctx.guild.name)})['ranking']['overall']:
+            for r in server['info'].find_one({'name': str(ctx.guild.name)})['rankings_semester']['overall']:
                 if r['name'] == str(name):
                     break
                 count += 1
 
         # Format info
         ti = "{}'s CTF Profile".format(str(name).split('#')[0])
-        des = "**Overall:** {} ({})".format(round(member['overall'],3), place(count))
+        des = "**Overall:** {} ({})".format(round(member['ratings_semester']['overall'],3), place(count))
         emb = discord.Embed(title=ti, description=des, colour=1752220)
-        for cat, val in member['ratings'].items():
+        for cat, val in member['ratings_semester'].items():
+            if cat == 'overall':
+                continue
             if cat == "crypto":
                 cat = cat.capitalize() + " :abacus:"
             elif cat == "forensics":
@@ -138,27 +138,22 @@ class Leaderboard(commands.Cog):
             elif cat == "osint":
                 cat = cat.upper() + " :mag_right:"
             elif cat == "web exploitation":
-                cat = cat.split(' ')
-                cat = "{} {} :spider_web:".format(cat[0].capitalize(), cat[1].capitalize())
-            elif cat == "binary exploitation":
+                cat = "Web :spider_web:"
+            elif cat == "pwn":
                 cat = cat.split(' ')
                 cat = "{} {} :game_die:".format(cat[0].capitalize(), cat[1].capitalize())
             elif cat == "reversing":
                 cat = cat.capitalize() + " :slot_machine:"
             elif cat == "tryhackme":
                 cat = "TryHackMe :computer:"
-            elif cat == "cryptocurrency":
-                cat = cat.capitalize() + " :moneybag:"
-            elif cat == "network":
-                cat = cat.capitalize() + " :satellite:"
             else:
                 cat = cat.capitalize() + " :selfie:"
-            emb.add_field(name=cat, value=round(val, 3), inline=True)
+            emb.add_field(name=cat, value=round(val['score'], 3), inline=True)
 
         # Send it
         emb.set_thumbnail(url=(ctx.message.author.avatar_url))
         #emb.set_author(name=)
-        emb.set_footer(text="Number of competitions: {}\n\n".format(len(member['ctfs_competed'])))
+        emb.set_footer(text="Number of competitions: {}\n\n".format(len(member['competed_semester'])))
         await ctx.channel.send(embed=emb)
 
     @rank.command()
@@ -167,7 +162,7 @@ class Leaderboard(commands.Cog):
         server = client[str(ctx.guild.name).replace(' ', '-')]
         info = server['info'].find_one({'name': str(ctx.guild.name)})
 
-        if (info['ranking'] == {}):
+        if (info['rankings_semester'] == {}):
             await ctx.send("No one on the server has competed in a competition yet!")
             return
 
@@ -187,7 +182,7 @@ class Leaderboard(commands.Cog):
         emb.set_thumbnail(url=thumbnails[cat.lower()])
 
         count = 0
-        for member in info['ranking'][cat.lower()]:
+        for member in info['rankings_semester'][cat.lower()]:
             if count < 5:
                 message = "({}) {}".format(place(count + 1), member['name'].split("#")[0])
                 val = "{}".format(round(member['score'], 3))

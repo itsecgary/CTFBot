@@ -28,6 +28,7 @@ chall_aliases = {
 }
 
 #################################### METHODS ###################################
+# verifies that the command called exists within
 def in_ctf_channel():
     async def tocheck(ctx):
         # A check for ctf context specific commands
@@ -40,6 +41,7 @@ def in_ctf_channel():
 
     return commands.check(tocheck)
 
+# verifies that the command is called in-server and not over DM
 def in_channel():
     async def tocheck(ctx):
         # A check for ctf context specific commands
@@ -102,91 +104,103 @@ def check_aliases(guild, creds, channel_name):
     else:
         raise InvalidCredentials("CTF is not based on CTFd - could not check if aliases are correct.")
 
-def calculate(server_name, ctf_name):
+# This occurs after the calculate() method to update all three rankings
+def do_rankings(server_name, ctf_name, team_name):
+    server = client[server_name.replace(' ', '-')]
+    info_db = server['info']
+    members = server['members']
+
+    ext_names = ['_overall', '_semester', '_year']
+    for e in ext_names:
+        # Create overall rankings
+        rankings = {}
+        overall_r = []
+        already_got = []
+        while (len(overall_r) < members.count()):
+            highest = -1
+            p = None
+            for person in members.find():
+                if person[f'ratings{e}']['overall'] > highest and not person['name'] in already_got:
+                    highest = person[f'ratings{e}']['overall']
+                    p = person
+            already_got.append(p['name'])
+            overall_r.append({'name': p['name'], 'score': p[f'ratings{e}']['overall']})
+        rankings['overall'] = overall_r
+
+        # Create rankings for each category
+        for cat in chall_aliases.keys():
+            arr = []
+            already_got = []
+            while (len(arr) < members.count()):
+                highest = -1
+                p = None
+                for person in members.find():
+                    if person[f'ratings{e}'][cat]['score'] > highest and not person['name'] in already_got:
+                        highest = person[f'ratings{e}'][cat]['score']
+                        p = person
+                already_got.append(p['name'])
+                arr.append({'name': p['name'], 'score': p[f'ratings{e}'][cat]['score']})
+            rankings[cat] = arr
+
+        # Update Guild Information
+        comp_arr = info_db.find_one({'name': server_name})[f'competitions{e}']
+        if comp_arr == []:
+            comp_arr = [ctf_name]
+        else:
+            comp_arr.append(ctf_name)
+
+        # Update DB with all calculated information
+        info_db.update({'name': server_name}, {"$set": {f'rankings{e}': rankings, f'competitions{e}': comp_arr}}, upsert=True)
+
+# Update each member's scores who competed in competition
+def calculate(server_name, ctf_name, team_name):
     # Fetch Databases
     server = client[server_name.replace(' ', '-')]
     info_db = server['info']
     members = server['members']
     ctf = server['ctfs'].find_one({'name': ctf_name})
-    num_members = len(ctf['members'].keys())
+    num_members = len(ctf['teams'][teamname]['members'].keys())
 
     # Calculate numerators and denominators for each member of competition
-    for name, mem_points in ctf['members'].items():
+    for name, mem_points in ctf['teams'][teamname]['members'].items():
         # Add CTF to competed CTFs in member profile
         member = members.find_one({'name': name})
-        arr = member['ctfs_competed']
-        if arr == []:
-            arr = [ctf_name]
-        else:
-            arr.append(ctf_name)
+        ext_names = ['_overall', '_semester', '_year']
+        for e in ext_names:
+            arr = member[f'competed{e}']
+            if arr == []:
+                arr = [ctf_name]
+            else:
+                arr.append(ctf_name)
 
-        # Calculate each category numerator and denominator
-        print("calculating numerator and denominator")
-        length = len(arr)
-        ratings = member['ratings']
-        for cat, val in mem_points.items():
-            if not (cat == "alias") and not (ctf['points'][cat] == 0):
-                solved_points = val
-                total_points = ctf['points'][cat]
-                weight = ctf['weight']
-                numerator = solved_points*weight
-                denominator = total_points*weight
-                ratings[cat]['numerator'] = ratings[cat]['numerator'] + numerator
-                ratings[cat]['denominator'] = ratings[cat]['denominator'] + denominator
-                ratings[cat]['score'] = ratings[cat]['numerator'] / ratings[cat]['denominator']
+            # Calculate each category numerator and denominator
+            length = len(arr)
+            ratings = member[f'ratings{e}']
+            inv_names = ["alias", "name", "solves"]
+            for cat, val in mem_points.items():
+                if not (cat in inv_names) and not (ctf['points'][cat] == 0):
+                    solved_points = val
+                    total_points = ctf['points'][cat]
+                    weight = ctf['weight']
+                    numerator = solved_points*weight
+                    denominator = total_points*weight
+                    ratings[cat]['numerator'] = ratings[cat]['numerator'] + numerator
+                    ratings[cat]['denominator'] = ratings[cat]['denominator'] + denominator
+                    ratings[cat]['score'] = 100*(ratings[cat]['numerator'] / ratings[cat]['denominator'])
 
+            # Calculate overall
+            overall = 0
+            for cat, val in member[f'ratings{e}'].items():
+                if cat != "overall":
+                    overall += val['score']
+            overall = overall / (len(member[f'ratings{e}'].keys()) - 1)
+            ratings['overall'] = overall
 
-        print('here')
-        # Calculate overall
-        overall = 0
-        for cat, val in member['ratings'].items():
-            overall += val['score']
-        overall = overall / len(arr)
-
-        # Update member's DB and set boolean to True
-        members.update({'name': name}, {"$set": {'overall': overall, 'ratings': member['ratings'], 'ctfs_competed': arr}}, upsert=True)
+            # Update member's DB and set boolean to True
+            members.update({'name': name}, {"$set": {f'ratings{e}': ratings, f'competed{e}': arr}}, upsert=True)
         server['ctfs'].update({'name': ctf_name}, {"$set": {'calculated?': True}}, upsert=True)
 
-    # Create overall rankings
-    rankings = {}
-    overall_r = []
-    already_got = []
-    while (len(overall_r) < members.count()):
-        highest = -1
-        p = None
-        for person in members.find():
-            if person['overall'] > highest and not person['name'] in already_got:
-                highest = person['overall']
-                p = person
-        already_got.append(p['name'])
-        overall_r.append({'name': p['name'], 'score': p['overall']})
-    rankings['overall'] = overall_r
-
-    # Create rankings for each category
-    for cat in chall_aliases.keys():
-        arr = []
-        already_got = []
-        while (len(arr) < members.count()):
-            highest = -1
-            p = None
-            for person in members.find():
-                if person['ratings'][cat]['score'] > highest and not person['name'] in already_got:
-                    highest = person['ratings'][cat]['score']
-                    p = person
-            already_got.append(p['name'])
-            arr.append({'name': p['name'], 'score': p['ratings'][cat]['score']})
-        rankings[cat] = arr
-
-    # Update Guild Information
-    comp_arr = info_db.find_one({'name': server_name})['competitions']
-    if comp_arr == []:
-        comp_arr = [ctf_name]
-    else:
-        comp_arr.append(ctf_name)
-
-    # Update DB with all calculated information
-    info_db.update({'name': server_name}, {"$set": {'ranking': rankings, 'competitions': comp_arr, 'num competitions': len(comp_arr)}}, upsert=True)
-
+# Grab information for specified challenge on CTFd
 def get_one_CTFd(ctx, url, username, password, s, chall):
     r = s.get(f"{url}/login")
     try:
@@ -218,6 +232,7 @@ def get_one_CTFd(ctx, url, username, password, s, chall):
     challenge_info = s.get("{}/api/v1/challenges/{}".format(url, chall_id)).json()
     return challenge_info
 
+# Grab information for specified challenge on rCTF
 def get_one_rCTF(ctx, url, token, s, chall):
     heads = {
         "Content-Type": "application/json",
@@ -252,6 +267,7 @@ def get_one_rCTF(ctx, url, token, s, chall):
     print(chall_dict)
     return chall_dict
 
+# Grab all challenge information from competition CTFd and update database
 def get_challenges_CTFd(ctx, url, username, password, s):
     r = s.get(f"{url}/login")
     try:
@@ -283,7 +299,7 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     }
     solved_points = 0
     server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-    members = server.find_one({'name': str(ctx.message.channel.category)})['members']
+    members = server.find_one({'name': str(ctx.message.channel.category)})['teams'][teamname]['members']
 
     # Reset points to 0
     for k, v in members.items():
@@ -356,12 +372,17 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     rank = ""
     if "place" in team_info['data'].keys() and team_info['data']['place']:
         rank += team_info['data']['place']
-    ctf_info = {'points': point_info, 'solved points': solved_points,
-                'rank': rank, 'members': members}
+    teams[teamname]['members'] = members
+    teams[teamname]['rank'] = rank
+    teams[teamname]['solved points'] = solved_points
+
+    
+    ctf_info = {'points': point_info, 'teams': teams}
     #server.update({'name': str(ctx.message.channel)}, {"$unset": {'total points': ""}}, upsert=True)
     server.update({'name': str(ctx.channel.category)}, {"$set": ctf_info}, upsert=True)
     return challenges
 
+# Grab all challenge information from competition rCTF and update database
 def get_challenges_rCTF(ctx, url, token, s):
     heads = {
         "Content-Type": "application/json",
@@ -526,6 +547,7 @@ class CTF(commands.Cog):
 
                     # Calculate scores
                     calculate(str(guild.name), ctf)
+                    do_rankings(str(guild.name), ctf)
 
     @commands.group()
     async def ctf(self, ctx):
@@ -698,7 +720,13 @@ class CTF(commands.Cog):
     async def add(self, ctx, user: discord.User, alias, teamname):
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         ctf = server.find_one({'name': str(ctx.message.channel)})
+        teams = ctf['teams']
         teamname = teamname.replace(' ','-').lower()
+
+        # Check if team exists
+        if not (teamname in teams.keys()):
+            await ctx.channel.send("The team **{}** does not exist!".format(teamname))
+            return
 
         # get member
         channel = discord.utils.get(ctx.guild.channels, name=teamname)
@@ -712,10 +740,18 @@ class CTF(commands.Cog):
                 await member.add_roles(r)
 
         # add member to team in DB
-        teams = ctf['teams']
-        member_info = { "name": str(user), "alias": alias, "solves": []}
+        #member_info = { "name": str(user), "alias": alias, "solves": []}
+        member_info = { "name": str(user), "alias": alias, "crypto": 0, "forensics": 0,
+                        "misc": 0, "osint": 0, "web exploitation": 0, "pwn": 0,
+                        "reversing": 0, "tryhackme": 0, "solves": []}
         teams[teamname]['members'][str(user)] = member_info
         server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
+
+        # Change alias
+        members = ctf['members']
+        if str(user) in members.keys():
+            members[str(user)]['alias'] = alias
+            server.update({'name': str(ctx.message.channel)}, {"$set": {'members': members}}, upsert=True)
 
         await ctx.message.add_reaction("✅")
         await channel.send("{} has joined {}!".format(user, teamname))
@@ -742,7 +778,7 @@ class CTF(commands.Cog):
         for m in member_list:
             member = server['members'].find_one({'name': m})
             ti = member_list[m]['alias']
-            des = "Overall: {}".format(member['overall'])
+            des = "Overall: {}".format(member['ratings_overall']['overall'])
             emb = discord.Embed(title=ti, description=des, colour=1752220)
             emb.add_field(name="Solves: ", value=member_list[m]['solves'], inline=True)
             emb.set_thumbnail(url=member['pfp'])
@@ -817,7 +853,7 @@ class CTF(commands.Cog):
         role = discord.utils.get(ctx.guild.roles, name=str(ctx.message.channel))
         user = ctx.message.author
         await user.add_roles(role)
-        await ctx.send(f"{user} has joined the {str(ctx.message.channel)} team!")
+        await ctx.send(f"{user} wants to compete in {str(ctx.message.channel)}!")
 
         # Get DB
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
@@ -892,6 +928,7 @@ class CTF(commands.Cog):
             await ctx.channel.send(replace_msg)
         msg = await ctx.channel.send(message)
         await msg.pin()
+        await ctx.message.delete()
 
     @staticmethod
     async def pull_challs(self, ctx, creds):
@@ -968,19 +1005,19 @@ class CTF(commands.Cog):
             await ctx.send("CTF is over, but I still might have chall info.")
             await CTF.pull_challs(self, ctx, creds)
             if not ctf['calculated?']: # we only want to calculate once
-                calculate(str(ctx.guild.name), str(ctx.channel.category).lower())
+                calculate(str(ctx.guild.name), str(ctx.channel.category).lower(), str(ctx.channel))
+                do_rankings(str(ctx.guild.name), str(ctx.channel.category).lower(), str(ctx.channel))
         else:
             await CTF.pull_challs(self, ctx, creds)
 
-
         # Print challenges to chat
+        ctf = server.find_one({'name': str(ctx.channel.category).lower()}) # update local hash
         if 'challenges' in ctf.keys():
-            ctf = server.find_one({'name': str(ctx.channel.category).lower()}) # update local hash
             try:
                 ctf_challenge_list = []
                 message = ""
                 message2 = ""
-                print(ctf['challenges'].items())
+                #print(ctf['challenges'].items())
                 for k, v in ctf['challenges'].items():
                     if len(message) > 1500:
                         message2 = message
@@ -999,6 +1036,8 @@ class CTF(commands.Cog):
                     await ctx.send("```md\n{0}```".format(message2))
             except:
                 traceback.print_exc()
+        else:
+            print('wtf there are no challs')
 
     @ctf.command()
     @in_channel()

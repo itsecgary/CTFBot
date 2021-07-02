@@ -37,8 +37,9 @@ async def on_ready():
         if not server['info'].find_one({'name': str(guild.name)}):
             team_info = {
                 "name": str(guild.name),"guild id": str(guild.id),
-                "num members": member_cnt, "competitions": [],
-                "num competitions": 0, "ranking": {}
+                "num members": member_cnt, "competitions_overall": [],
+                "competitions_semester": [], "competitions_year": [],
+                "rankings_overall": {}, "rankings_semester": {}, "rankings_year": {}
             }
             server["info"].update_one({"name": str(guild.name)}, {"$set": team_info}, upsert=True)
         print("------------------------------------------------{}".format("-"*len(guild.name)))
@@ -106,45 +107,22 @@ async def help(ctx, page=None):
         emb.set_author(name='CTFBot Help')
     await ctx.channel.send(embed=emb)
 
-@bot.command()
-async def deep_archive(ctx):
-    for channel in ctx.guild.channels:
-        if str(channel.category).lower() == "archive":
-            print(f'Deep Archiving channel: {channel}')
-            filename = f"./tmp/{channel.name}.txt"
-            # export all messages
-            counter = 0
-            with open(filename, "w+") as file:
-                async for msg in ctx.channel.history(limit=None):
-                    file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
-                    for a in msg.attachments:
-                        await a.save(f"./tmp/{channel.name}-{a.filename}-{counter}")
-                        counter += 1
-
-            # combine into tar.gz
-            today = date.today()
-            d4 = today.strftime("%b-%d-%Y_%H-%M-%S")
-            with tarfile.open(f"./archived/archived-{d4}.tar.gz", "w:gz") as tar_handle:
-                for root, dirs, files in os.walk("./tmp/"):
-                    for file in files:
-                        tar_handle.add(os.path.join(root, file))
-
-            os.system("rm ./tmp/*")
-            await channel.delete()
-
 def add_member(member, guild):
     server = client[str(guild.name).replace(' ', '-')]
     members = server['members']
     rs = {'numerator': 0, 'denominator': 0, 'score': 0}
+    struct = {"overall": 0, "crypto": rs, "forensics": rs,
+              "reversing": rs, "osint": rs, "tryhackme": rs,
+              "misc": rs, "web exploitation": rs, "pwn": rs}
     member_info = {
         "name": member.name + '#' + member.discriminator,
-        "overall": 0,
-        "ctfs_competed": [],
+        "competed_overall": [],
+        "competed_semester": [],
+        "competed_year": [],
         "pfp": str(member.avatar_url),
-        "ratings": {
-            "crypto": rs, "forensics": rs, "reversing": rs, "osint": rs,
-            "tryhackme": rs, "misc": rs, "web exploitation": rs, "pwn": rs
-        }
+        "ratings_overall": struct,
+        "ratings_semester": struct,
+        "ratings_year": struct
     }
     m = members.find_one({'name': member_info['name']})
     if not member.bot and m == None:
