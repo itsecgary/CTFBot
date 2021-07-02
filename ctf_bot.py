@@ -143,8 +143,7 @@ def add_member(member, guild):
         "pfp": str(member.avatar_url),
         "ratings": {
             "crypto": rs, "forensics": rs, "reversing": rs, "osint": rs,
-            "network": rs, "tryhackme": rs, "misc": rs, "mobile": rs,
-            "cryptocurrency": rs, "web exploitation": rs, "binary exploitation": rs
+            "tryhackme": rs, "misc": rs, "web exploitation": rs, "pwn": rs
         }
     }
     m = members.find_one({'name': member_info['name']})

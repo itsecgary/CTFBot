@@ -17,16 +17,13 @@ sys.path.append("..")
 ################################ DATA STRUCTURES ###############################
 chall_aliases = {
     "crypto": ["crypto", "cryptography", "aes", "rsa", "encryption", "encoding", "cipher", "ciphers"],
-    "forensics": ["forensics", "stego", "steganography", "memory analysis"],
+    "forensics": ["forensics", "stego", "steganography", "memory analysis", "wireshark"],
     "misc": ["misc", "other", "miscellaneous", "trivia", "random", "warmup"],
     "osint": ["osint" "open source intelligence"],
-    "web exploitation": ["web", "web-exploitation", "web exploitation"],
-    "binary exploitation": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation", "kernel exploitation"],
+    "web exploitation": ["web", "web-exploitation", "web exploitation", "webexp"],
+    "pwn": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation", "kernel exploitation"],
     "reversing": ["reverse", "reversing", "re", "reverse engineering", "reverse-engineering"],
-    "tryhackme": ["htb", "hackthebox", "hack the box", "try hack me", "tryhackme"],
-    "cryptocurrency": ["cryptocurrency", "etherium", "coin", "bitcoin", "blockchain", "secure contracts"],
-    "network": ["network", "networking", "network analysis", "wireshark", "rf", "pcap"],
-    "mobile": ["mobile", "android", "mobile security", "apk"]
+    "tryhackme": ["htb", "hackthebox", "hack the box", "try hack me", "tryhackme"]
 }
 
 #################################### METHODS ###################################
@@ -123,6 +120,7 @@ def calculate(server_name, ctf_name):
             arr.append(ctf_name)
 
         # Calculate each category numerator and denominator
+        print("calculating numerator and denominator")
         length = len(arr)
         ratings = member['ratings']
         for cat, val in mem_points.items():
@@ -137,11 +135,12 @@ def calculate(server_name, ctf_name):
                 ratings[cat]['score'] = ratings[cat]['numerator'] / ratings[cat]['denominator']
 
 
+        print('here')
         # Calculate overall
         overall = 0
         for cat, val in member['ratings'].items():
-            overall += val
-        overall = overall / len(member['ctfs_compteted'])
+            overall += val['score']
+        overall = overall / len(arr)
 
         # Update member's DB and set boolean to True
         members.update({'name': name}, {"$set": {'overall': overall, 'ratings': member['ratings'], 'ctfs_competed': arr}}, upsert=True)
@@ -278,9 +277,8 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     # Variables
     challenges = {}
     point_info = {
-        "crypto": 0, "forensics": 0, "misc": 0, "osint": 0,
-        "web exploitation": 0, "binary exploitation": 0, "reversing": 0, "tryhackme": 0,
-        "cryptocurrency": 0, "network": 0, "mobile": 0, "total": 0
+        "crypto": 0, "forensics": 0, "misc": 0, "osint": 0, "web exploitation": 0,
+        "pwn": 0, "reversing": 0, "tryhackme": 0, "total": 0
     }
     solved_points = 0
     server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
@@ -299,11 +297,15 @@ def get_challenges_CTFd(ctx, url, username, password, s):
             value = chall['value']
             point_info['total'] += value
 
-            # Add points for category
+            # Add points for category - misc if not found
             for real_chall_name, aliases in chall_aliases.items():
                 if cat.lower() in aliases:
+                    cat = real_chall_name
                     point_info[real_chall_name] += value
                     break
+            if point_info[real_chall_name] == 0:
+                cat = "misc"
+                point_info["misc"] += value
 
             chall_entry = {'name': challname, 'solved': False, 'solver': '', 'points': value}
             if cat in challenges.keys():
@@ -314,10 +316,11 @@ def get_challenges_CTFd(ctx, url, username, password, s):
         raise Exception("Error making request")
 
     # Add team solves
+    #print(challenges)
     if team_solves['success'] == True:
         for solve in team_solves['data']:
             # Get challenge info
-            cat = solve['challenge']['category']
+            cat = solve['challenge']['category'].lower()
             challname = solve['challenge']['name']
             solver = solve['user']
             value = solve['challenge']['value']
@@ -328,13 +331,19 @@ def get_challenges_CTFd(ctx, url, username, password, s):
             user_profile = r_user.json()
             solver = user_profile['data']['name']
 
+            found = 0
+            for real_chall_name, aliases in chall_aliases.items():
+                if cat.lower() in aliases:
+                    cat = real_chall_name
+                    found = 1
+                    break
+            if found == 0:
+                cat = "misc"
+
             # Add points for member who solved it for specific category
             for name, attr in members.items():
                 if attr["alias"] == solver:
-                    for real_chall_name, aliases in chall_aliases.items():
-                        if cat.lower() in aliases:
-                            members[name][real_chall_name] += value
-                            break
+                    members[name][cat] += value
 
             # Change challenge_solved info if solved by team
             for i in range(len(challenges[cat])):
@@ -349,7 +358,7 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     ctf_info = {'points': point_info, 'solved points': solved_points,
                 'rank': rank, 'members': members}
     #server.update({'name': str(ctx.message.channel)}, {"$unset": {'total points': ""}}, upsert=True)
-    server.update({'name': str(ctx.message.channel.category)}, {"$set": ctf_info}, upsert=True)
+    server.update({'name': str(ctx.channel.category)}, {"$set": ctf_info}, upsert=True)
     return challenges
 
 def get_challenges_rCTF(ctx, url, token, s):
@@ -763,13 +772,36 @@ class CTF(commands.Cog):
         if role != None:
             await role.delete()
             await ctx.send(f"`{role.name}` role deleted, archiving channel.")
-        servarchive = "ARCHIVE"
-        category = discord.utils.get(ctx.guild.categories, name=servarchive)
+        #servarchive = "ARCHIVE"
+        #category = discord.utils.get(ctx.guild.categories, name=servarchive)
 
-        if category == None: # Checks if category exists, if it doesn't it will create it.
-            await ctx.guild.create_category(name=servarchive)
-            category = discord.utils.get(ctx.guild.categories, name=servarchive)
-        await ctx.message.channel.edit(syncpermissions=True, category=category)
+        #if category == None: # Checks if category exists, if it doesn't it will create it.
+    #        await ctx.guild.create_category(name=servarchive)
+#            category = discord.utils.get(ctx.guild.categories, name=servarchive)
+#        await ctx.message.channel.edit(syncpermissions=True, category=category)
+
+        print(f'Deep Archiving channel: {ctfname}')
+        filename = f"./tmp/{ctfname}.txt"
+
+        # export all message attachments
+        counter = 0
+        with open(filename, "w+") as file:
+            async for msg in ctx.channel.history(limit=None):
+                file.write(f"{msg.created_at} - {msg.author.display_name}: {msg.clean_content}\n")
+                for a in msg.attachments:
+                    await a.save(f"./tmp/{ctfname}-{a.filename}-{counter}")
+                    counter += 1
+
+        # combine into tar.gz
+        today = date.today()
+        d4 = today.strftime("%b-%d-%Y_%H-%M-%S")
+        with tarfile.open(f"./archived/archived-{d4}.tar.gz", "w:gz") as tar_handle:
+            for root, dirs, files in os.walk("./tmp/"):
+                for file in files:
+                    tar_handle.add(os.path.join(root, file))
+
+        os.system("rm ./tmp/*")
+        await ctx.channel.delete()
 
         # delete all channels in category
         for channel in ctx.guild.channels:
@@ -802,7 +834,7 @@ class CTF(commands.Cog):
         members = ctf['members']
         members[str(user)] = {
             "alias": alias, "crypto": 0, "forensics": 0, "misc": 0, "osint": 0, "web exploitation": 0,
-            "binary exploitation": 0, "reversing": 0, "tryhackme": 0, "cryptocurrency": 0, "network": 0, "mobile": 0
+            "pwn": 0, "reversing": 0, "tryhackme": 0
         }
         server.update({'name': str(ctx.message.channel)}, {"$unset": {'members': ""}}, upsert=True)
         server.update({'name': str(ctx.message.channel)}, {"$set": {'members': members}}, upsert=True)
