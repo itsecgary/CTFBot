@@ -795,8 +795,8 @@ class CTF(commands.Cog):
 
         # combine into tar.gz
         today = date.today()
-        d4 = today.strftime("%b-%d-%Y_%H-%M-%S")
-        with tarfile.open(f"./archived/archived-{d4}.tar.gz", "w:gz") as tar_handle:
+        d4 = today.strftime("%b-%d-%Y")
+        with tarfile.open(f"./archived/{ctfname}-{d4}.tar.gz", "w:gz") as tar_handle:
             for root, dirs, files in os.walk("./tmp/"):
                 for file in files:
                     tar_handle.add(os.path.join(root, file))
