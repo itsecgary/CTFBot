@@ -609,11 +609,9 @@ class CTF(commands.Cog):
         # Discord server stuff
         ctf_name = ctf_info["name"]
         if ctf_name not in [c.name for c in ctx.guild.categories]:
-            print(ctx.guild.categories)
             cat = await ctx.guild.create_category(ctf_name)
             length = len(ctx.guild.categories)
             await cat.edit(position=length-2)
-            print(ctx.guild.categories)
         category = discord.utils.get(ctx.guild.categories, name=ctf_name)
 
         await ctx.guild.create_text_channel(name=ctf_name, category=category)
@@ -736,6 +734,12 @@ class CTF(commands.Cog):
             await ctx.channel.send("The team **{}** does not exist!".format(teamname))
             return
 
+        # Check if user belongs to team already
+        for t in teams.keys():
+            if str(user) in teams[t]['members']:
+                await ctx.channel.send("{} already belongs to team {}".format(str(user), t))
+                return
+
         # get member
         channel = discord.utils.get(ctx.guild.channels, name=teamname)
         member = ctx.guild.get_member(user.id)
@@ -808,6 +812,25 @@ class CTF(commands.Cog):
         client[str(ctx.guild.name).replace(' ', '-')]['ctfs'].remove({'name': str(ctx.message.channel)})
         await ctx.send(f"`{str(ctx.message.channel)}` deleted from db")
 
+        # Deleting channels
+        ctfname = str(ctx.message.channel)
+        for channel in ctx.guild.channels:
+            if str(channel.category).lower() == ctfname.lower():
+                role = discord.utils.get(ctx.guild.roles, name=str(channel).lower())
+                if channel != None:
+                    await channel.delete()
+                try:
+                    if role != None:
+                        print(f"`{role.name}` role deleted")
+                        await role.delete()
+                except: # just in case discord wacks out
+                    pass
+
+        # delete category
+        for cat in ctx.guild.categories:
+            if str(cat.name).lower() == ctfname.lower():
+                await cat.delete()
+
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     @commands.has_permissions(manage_channels=True)
     @ctf.command()
@@ -823,7 +846,6 @@ class CTF(commands.Cog):
         filename = f"./tmp/{ctfname}.txt"
 
         # export all message attachments
-        print('exporting attachments')
         counter = 0
         with open(filename, "w+") as file:
             async for msg in ctx.channel.history(limit=None):
@@ -833,16 +855,15 @@ class CTF(commands.Cog):
                     counter += 1
 
         # combine into tar.gz
-        print('tarballing')
         today = date.today()
         d4 = today.strftime("%b-%d-%Y")
         with tarfile.open(f"./archived/{ctfname}-{d4}.tar.gz", "w:gz") as tar_handle:
             for root, dirs, files in os.walk("./tmp/"):
                 for file in files:
                     tar_handle.add(os.path.join(root, file))
-
         os.system("rm ./tmp/*")
 
+        # Deleting channels
         for channel in ctx.guild.channels:
             if str(channel.category).lower() == ctfname.lower():
                 role = discord.utils.get(ctx.guild.roles, name=str(channel).lower())
@@ -851,6 +872,7 @@ class CTF(commands.Cog):
                 if role != None:
                     print(f"`{role.name}` role deleted")
                     await role.delete()
+
         # delete category
         for cat in ctx.guild.categories:
             if str(cat.name).lower() == ctfname.lower():
