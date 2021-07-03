@@ -844,6 +844,11 @@ class CTF(commands.Cog):
         os.system("rm ./tmp/*")
         #await ctx.channel.delete()
 
+        # delete all voice channels in category
+        for vc in ctx.guild.voice_channels:
+            if str(vc.category).lower() == ctfname.lower():
+                print(f'trying to delete voice channel {vc}')
+                await vc.delete()
         # delete all channels in category
         for channel in ctx.guild.channels:
             if str(channel.category).lower() == ctfname.lower():
@@ -853,13 +858,11 @@ class CTF(commands.Cog):
                 if role != None:
                     print(f"`{role.name}` role deleted")
                     await role.delete()
-        # delete all voice channels in category
-        for vc in ctx.guild.voice_channels:
-            if str(vc.category).lower() == ctfname.lower():
-                await vc.delete()
         # delete category
         for cat in ctx.guild.categories:
+            print(cat)
             if str(cat.name).lower() == ctfname.lower():
+                print(f'trying to delete category {vc}')
                 await cat.delete()
 
     @commands.bot_has_permissions(manage_roles=True)
