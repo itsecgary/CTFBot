@@ -687,9 +687,12 @@ class CTF(commands.Cog):
         teamname = str(ctx.message.channel)
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         ctf = server.find_one({'name': str(ctx.message.channel.category)})
-        teams = ctf['teams']
+        if ctf == None:
+            await ctx.channel.send('CTF does not exists for some reason?')
+            return
 
         # Checks if team exists
+        teams = ctf['teams']
         if teamname not in teams:
             await ctx.send("This is not a team channel")
             return
@@ -842,6 +845,10 @@ class CTF(commands.Cog):
         # delete all channels in category
         for channel in ctx.guild.channels:
             if str(channel.category).lower() == ctfname.lower():
+                role = discord.utils.get(ctx.guild.roles, name=str(channel))
+                if role != None:
+                    await role.delete()
+                    await ctx.send(f"`{role.name}` role deleted")
                 await channel.delete()
         # delete all voice channels in category
         for vc in ctx.guild.voice_channels:
