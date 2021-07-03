@@ -4,7 +4,6 @@ import string
 import json
 import requests
 import sys
-import re
 import os
 import traceback
 import tarfile

@@ -10,9 +10,8 @@ show the top 5 members and their score for specified category
 ctf_help = '''
 `>ctf create https://ctftime.org/event/[EVENT_ID]`
 create a text channel and role in the CTF category for a ctf (must have permissions to manage channels)*
-`>ctf join [alias]`
-user \"joins\" the ctf general channel for the specific competition with the *alias* being their username for CTFd.
-the *alias* must be exactly what it is on the CTF platform
+`>ctf join`
+user \"joins\" the ctf general channel for the specific competition.
 `>ctf form [team name]`
 forms a team with specified team name (must have permissions to manage channels)*
 `>ctf add @[user] [alias] [team name]`

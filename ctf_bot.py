@@ -1,8 +1,7 @@
 import discord
-import os
 from discord.ext import commands, tasks
-from itertools import cycle
 import os
+from itertools import cycle
 import tarfile
 from datetime import date
 from config_vars import *
