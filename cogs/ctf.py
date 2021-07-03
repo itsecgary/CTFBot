@@ -848,7 +848,7 @@ class CTF(commands.Cog):
                 role = discord.utils.get(ctx.guild.roles, name=str(channel))
                 if role != None:
                     await role.delete()
-                    await ctx.send(f"`{role.name}` role deleted")
+                    print(f"`{role.name}` role deleted")
                 await channel.delete()
         # delete all voice channels in category
         for vc in ctx.guild.voice_channels:
@@ -862,25 +862,11 @@ class CTF(commands.Cog):
     @commands.bot_has_permissions(manage_roles=True)
     @ctf.command()
     @in_ctf_channel()
-    async def join(self, ctx, alias):
+    async def join(self, ctx):
         role = discord.utils.get(ctx.guild.roles, name=str(ctx.message.channel))
         user = ctx.message.author
         await user.add_roles(role)
         await ctx.send(f"{user} wants to compete in {str(ctx.message.channel)}!")
-
-        # Get DB
-        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-        mems = client[str(ctx.guild.name).replace(' ', '-')]['members']
-        ctf = server.find_one({'name': str(ctx.message.channel)})
-
-        # Add member to CTF DB along with alias in order for point processing
-        members = ctf['members']
-        members[str(user)] = {
-            "alias": alias, "crypto": 0, "forensics": 0, "misc": 0, "osint": 0, "web exploitation": 0,
-            "pwn": 0, "reversing": 0, "tryhackme": 0
-        }
-        server.update({'name': str(ctx.message.channel)}, {"$unset": {'members': ""}}, upsert=True)
-        server.update({'name': str(ctx.message.channel)}, {"$set": {'members': members}}, upsert=True)
 
     @commands.bot_has_permissions(manage_roles=True)
     @ctf.command()
