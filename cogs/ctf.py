@@ -845,11 +845,11 @@ class CTF(commands.Cog):
         # delete all channels in category
         for channel in ctx.guild.channels:
             if str(channel.category).lower() == ctfname.lower():
-                role = discord.utils.get(ctx.guild.roles, name=str(channel))
+                role = discord.utils.get(ctx.guild.roles, name=str(channel).lower())
+                await channel.delete()
                 if role != None:
                     await role.delete()
                     print(f"`{role.name}` role deleted")
-                await channel.delete()
         # delete all voice channels in category
         for vc in ctx.guild.voice_channels:
             if str(vc.category).lower() == ctfname.lower():
