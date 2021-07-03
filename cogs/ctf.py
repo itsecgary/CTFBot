@@ -864,7 +864,7 @@ class CTF(commands.Cog):
         for cat in ctx.guild.categories:
             print(cat)
             if str(cat.name).lower() == ctfname.lower():
-                print(f'trying to delete category {vc}')
+                print(f'trying to delete category {cat}')
                 await cat.delete()
 
     @commands.bot_has_permissions(manage_roles=True)
