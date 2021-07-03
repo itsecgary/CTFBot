@@ -55,7 +55,7 @@ class Leaderboard(commands.Cog):
         self.bot = bot
         self.archive_leaderboard.start()
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(minutes=1440.0)
     async def archive_leaderboard(self):
         for guild in self.bot.guilds:
             server_name = str(guild.name).replace(' ', '-')
