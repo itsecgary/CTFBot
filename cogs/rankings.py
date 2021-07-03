@@ -55,13 +55,13 @@ class Leaderboard(commands.Cog):
         self.bot = bot
         self.archive_leaderboard.start()
 
-    @tasks.loop(minutes=1440.0)
+    @tasks.loop(minutes=1)
     async def archive_leaderboard(self):
         for guild in self.bot.guilds:
             server_name = str(guild.name).replace(' ', '-')
             server = client[server_name]
             lbs = server['archived_leaderboards']
-            info_db = server['info']
+            info_db = server['info'].find_one({'name': str(guild.name)})
             year = int(datetime.date.today().year)
             month = int(datetime.date.today().month)
             day = int(datetime.date.today().day)
@@ -88,18 +88,18 @@ class Leaderboard(commands.Cog):
                 name2 = f'Year-{year-1}-{year}'
                 lb_info = {"name": name, "rankings": info_db['rankings_semester']}
                 lb_info2 = {"name": name2, "rankings": info_db['rankings_year']}
-                cleared = {"competitons_semester": [], "rankings_semester": {},
-                           "competitons_year": [], "rankings_year": {}}
+                cleared = {"competitions_semester": [], "rankings_semester": {},
+                           "competitions_year": [], "rankings_year": {}}
             else:
                 name = "All-Time"
                 lb_info = {"name": name, "rankings": info_db['rankings_overall']}
 
             if len(name) > 0:
-                lbs.update({'name': name}, {"$set": lb_info}, upsert=True)
+                lbs.update_one({'name': name}, {"$set": lb_info}, upsert=True)
             if len(name2) > 0:
-                lbs.update({'name': name2}, {"$set": lb_info2}, upsert=True)
+                lbs.update_one({'name': name2}, {"$set": lb_info2}, upsert=True)
             if len(cleared.keys()) > 0:
-                info_db.update({'name': server_name}, {"$set": cleared}, upsert=True)
+                server['info'].update({'name': str(guild.name)}, {"$set": cleared}, upsert=True)
 
     @commands.group()
     async def rank(self, ctx):
@@ -141,7 +141,7 @@ class Leaderboard(commands.Cog):
                 cat = "Web :spider_web:"
             elif cat == "pwn":
                 cat = cat.split(' ')
-                cat = "{} {} :game_die:".format(cat[0].capitalize(), cat[1].capitalize())
+                cat = "{} :game_die:".format(cat[0].capitalize())
             elif cat == "reversing":
                 cat = cat.capitalize() + " :slot_machine:"
             elif cat == "tryhackme":

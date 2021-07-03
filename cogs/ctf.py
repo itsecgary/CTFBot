@@ -159,10 +159,10 @@ def calculate(server_name, ctf_name, team_name):
     info_db = server['info']
     members = server['members']
     ctf = server['ctfs'].find_one({'name': ctf_name})
-    num_members = len(ctf['teams'][teamname]['members'].keys())
+    num_members = len(ctf['teams'][team_name]['members'].keys())
 
     # Calculate numerators and denominators for each member of competition
-    for name, mem_points in ctf['teams'][teamname]['members'].items():
+    for name, mem_points in ctf['teams'][team_name]['members'].items():
         # Add CTF to competed CTFs in member profile
         member = members.find_one({'name': name})
         ext_names = ['_overall', '_semester', '_year']
@@ -299,12 +299,15 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     }
     solved_points = 0
     server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
-    members = server.find_one({'name': str(ctx.message.channel.category)})['teams'][teamname]['members']
+    team_name = str(ctx.channel)
+    teams = server.find_one({'name': str(ctx.message.channel.category)})['teams']
+    members = server.find_one({'name': str(ctx.message.channel.category)})['teams'][team_name]['members']
 
     # Reset points to 0
+    inv_names = ["alias", "name", "solves"]
     for k, v in members.items():
         for cat, _ in v.items():
-            if not cat == "alias": members[k][cat] = 0
+            if not cat in inv_names : members[k][cat] = 0
 
     # Add all challenges
     if all_challenges['success'] == True:
@@ -360,7 +363,9 @@ def get_challenges_CTFd(ctx, url, username, password, s):
             # Add points for member who solved it for specific category
             for name, attr in members.items():
                 if attr["alias"] == solver:
-                    members[name][cat] += value
+                    attr[cat] += value
+                    #print(attr['solves'])
+                    attr['solves'][challname] = value
 
             # Change challenge_solved info if solved by team
             for i in range(len(challenges[cat])):
@@ -372,11 +377,11 @@ def get_challenges_CTFd(ctx, url, username, password, s):
     rank = ""
     if "place" in team_info['data'].keys() and team_info['data']['place']:
         rank += team_info['data']['place']
-    teams[teamname]['members'] = members
-    teams[teamname]['rank'] = rank
-    teams[teamname]['solved points'] = solved_points
 
-    
+    teams[team_name]['members'] = members
+    teams[team_name]['rank'] = rank
+    teams[team_name]['solved points'] = solved_points
+
     ctf_info = {'points': point_info, 'teams': teams}
     #server.update({'name': str(ctx.message.channel)}, {"$unset": {'total points': ""}}, upsert=True)
     server.update({'name': str(ctx.channel.category)}, {"$set": ctf_info}, upsert=True)
@@ -743,7 +748,7 @@ class CTF(commands.Cog):
         #member_info = { "name": str(user), "alias": alias, "solves": []}
         member_info = { "name": str(user), "alias": alias, "crypto": 0, "forensics": 0,
                         "misc": 0, "osint": 0, "web exploitation": 0, "pwn": 0,
-                        "reversing": 0, "tryhackme": 0, "solves": []}
+                        "reversing": 0, "tryhackme": 0, "solves": {}}
         teams[teamname]['members'][str(user)] = member_info
         server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
 
@@ -776,11 +781,12 @@ class CTF(commands.Cog):
         member_list = ctf['teams'][teamname]['members']
         print(member_list)
         for m in member_list:
+            val = member_list[m]['solves'].keys()
             member = server['members'].find_one({'name': m})
             ti = member_list[m]['alias']
             des = "Overall: {}".format(member['ratings_overall']['overall'])
             emb = discord.Embed(title=ti, description=des, colour=1752220)
-            emb.add_field(name="Solves: ", value=member_list[m]['solves'], inline=True)
+            emb.add_field(name="Solves: ", value=val, inline=True)
             emb.set_thumbnail(url=member['pfp'])
             await ctx.channel.send(embed=emb)
 
@@ -1136,9 +1142,9 @@ class CTF(commands.Cog):
 
         #print(teams)
         #print(teams[teamname])
-        teams[teamname]['members'][str(ctx.message.author)]['solves'].append(chall_name.replace(' ','-').lower())
-        server.update({'name': str(ctx.message.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
-        await ctx.channel.send("{} has solved `{}`".format(ctx.author.name, chall_name))
+        teams[teamname]['members'][str(ctx.message.author)]['solves'][chall_name.replace(' ','-').lower()] = ctf['challenges'][chall_name]
+        #server.update({'name': str(ctx.message.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
+        #await ctx.channel.send("{} has solved `{}`".format(ctx.author.name, chall_name))
 
 #################################### SETUP #####################################
 def setup(bot):
