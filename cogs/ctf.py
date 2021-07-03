@@ -816,13 +816,14 @@ class CTF(commands.Cog):
         ctfname = str(ctx.message.channel)
         role = discord.utils.get(ctx.guild.roles, name=str(ctx.message.channel))
         if role != None:
+            await ctx.channel.send(f"`{role.name}` role deleted, archiving channel.")
             await role.delete()
-            await ctx.send(f"`{role.name}` role deleted, archiving channel.")
 
         print(f'Deep Archiving channel: {ctfname}')
         filename = f"./tmp/{ctfname}.txt"
 
         # export all message attachments
+        print('exporting attachments')
         counter = 0
         with open(filename, "w+") as file:
             async for msg in ctx.channel.history(limit=None):
@@ -832,6 +833,7 @@ class CTF(commands.Cog):
                     counter += 1
 
         # combine into tar.gz
+        print('tarballing')
         today = date.today()
         d4 = today.strftime("%b-%d-%Y")
         with tarfile.open(f"./archived/{ctfname}-{d4}.tar.gz", "w:gz") as tar_handle:
@@ -840,11 +842,12 @@ class CTF(commands.Cog):
                     tar_handle.add(os.path.join(root, file))
 
         os.system("rm ./tmp/*")
-        await ctx.channel.delete()
+        #await ctx.channel.delete()
 
         # delete all channels in category
         for channel in ctx.guild.channels:
             if str(channel.category).lower() == ctfname.lower():
+                print(f'trying to delete channel {channel}')
                 role = discord.utils.get(ctx.guild.roles, name=str(channel).lower())
                 await channel.delete()
                 if role != None:
