@@ -841,6 +841,11 @@ class CTF(commands.Cog):
             await ctx.channel.send(f"`{role.name}` role deleted, archiving channel.")
             await role.delete()
 
+        # get ctf-general channel and send message there
+        for ch in ctx.guild.text_channels:
+            if str(ch.category).lower() == "ctf" and str(ch.name) == "ctf-general":
+                await ch.send(f'Archived `{ctfname}`')
+
         print(f'Deep Archiving channel: {ctfname}')
         filename = f"./tmp/{ctfname}.txt"
 
