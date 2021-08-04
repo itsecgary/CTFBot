@@ -1022,7 +1022,7 @@ class CTF(commands.Cog):
 
     @ctf.command()
     @in_channel()
-    async def challs(self, ctx):
+    async def challs(self, ctx, category=None):
         teamname = str(ctx.message.channel)
         ctf_challenge_list = []
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
@@ -1064,7 +1064,14 @@ class CTF(commands.Cog):
                 message = ""
                 message2 = ""
                 #print(ctf['challenges'].items())
-                for k, v in ctf['challenges'].items():
+                challs = ctf['challenges']
+                if not category is None:
+                    if category in challs.keys():
+                        challs = {category: challs[category]}
+                    else:
+                        await ctx.send("Invalid category")
+                        return
+                for k, v in challs.items():
                     if len(message) > 1500:
                         message2 = message
                         message = ""

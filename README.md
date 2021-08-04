@@ -83,6 +83,9 @@ encrypted in the database
 `>ctf challs`
 get a list of the challenges in the ctf, and their solve statuses. *Updates DB every time this is called*
 
+`>ctf challs [category]`
+get a list of the challenges in the ctf for a specific category, and their solve statuses. *Updates DB every time this is called*
+
 `>ctf pull "[chall name]"`
 pull information about a specific challenge along with the files associated to the challenge
 
