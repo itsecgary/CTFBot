@@ -128,6 +128,15 @@ to have ratings on as we have encountered them throughout several CTF competitio
 Each of these categories will be put through the following formula to decide the
 value for each user:
 
+```
+c1 = user's total number of points for specific category for the first competition
+c2 = user's total number of points for specific category for the second competition
+w1 = weight of first competition
+w2 = weight of second competition
+c1total = combined score of all challenges in specific category for the first competition
+c2total = combined score of all challenges in specific category for the second competition
+```
+
 <img src="images/points_system_challs.PNG" alt="Point System Formula">
 
 <img src="images/points_system_challs2.PNG" alt="Point System Overall Formula">
