@@ -7,9 +7,12 @@ import sys
 import os
 import traceback
 import tarfile
+import pickle
 import help_info
 import time as tm
 from dateutil.parser import parse
+from Crypto.PublicKey import RSA
+from Crypto.Util.number import long_to_bytes, bytes_to_long
 from datetime import *
 from config_vars import *
 sys.path.append("..")
@@ -25,6 +28,7 @@ chall_aliases = {
     "reversing": ["reverse", "reversing", "re", "reverse engineering", "reverse-engineering"],
     "tryhackme": ["htb", "hackthebox", "hack the box", "try hack me", "tryhackme"]
 }
+keys = pickle.load(open("passwords.p", "rb"))
 
 #################################### METHODS ###################################
 # verifies that the command called exists within
@@ -457,6 +461,28 @@ def get_challenges_rCTF(ctx, url, token, s):
                     challenges[cat][i]['solved'] = True
 
     return challenges
+
+# generate keypair for CTF password
+def rsa_encrypt(plaintext, ctfname, username):
+    keypair = RSA.generate(2048)
+    keys[f'{ctfname}_{username}'] = {'e': keypair.e, 'd': keypair.d, 'n': keypair.n, 'p': keypair.p, 'q': keypair.q}
+    print(keys)
+    pickle.dump(keys, open("passwords.p", "wb"))
+    ciphertext = pow(bytes_to_long(plaintext.encode()), keypair.e, keypair.n)
+    print('encrypting')
+    print(plaintext)
+    print(ciphertext)
+    return str(ciphertext)
+
+# decrypt password for CTFBot use with use of keypair
+def rsa_decrypt(ciphertext, ctfname, username):
+    keypair = keys[f'{ctfname}_{username}']
+    plaintext = pow(int(ciphertext), keypair['d'], keypair['n'])
+    plaintext = long_to_bytes(plaintext).decode()
+    print('decrypting')
+    print(ciphertext)
+    print(plaintext)
+    return plaintext
 
 #################################### CLASSES ###################################
 class InvalidProvider(Exception):
@@ -932,7 +958,8 @@ class CTF(commands.Cog):
             message = "CTF credentials set. \n**Token:**\t ".format(username) + \
                   "` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
         else:
-            creds = {"user": username, "pass": password, "site": site}
+            ciphertext = rsa_encrypt(password, str(ctx.channel.category), username)
+            creds = {"user": username, "pass": ciphertext, "site": site}
             message = "CTF credentials set. \n**Username:**\t` {0} ` ".format(username) + \
                   "\n**Password:**\t` * * * * * * * * ` \n**Website:**\t` {} `".format(site)
 
@@ -1014,7 +1041,11 @@ class CTF(commands.Cog):
         if teamname not in teams:
             await ctx.send("This is not a team channel")
             return
+
+        # get creds from db & decrypt password
         creds = teams[str(ctx.message.channel)]['creds']
+        plaintext = rsa_decrypt(creds['pass'], str(ctx.channel.category), creds['user'])
+        creds['pass'] = plaintext
 
         if not ctf:
             await ctx.send("Please create a separate channel for this CTF")
@@ -1069,7 +1100,11 @@ class CTF(commands.Cog):
         ctf = server.find_one({'name': str(ctx.channel.category)})
         teams = ctf['teams']
         unix_now = int(datetime.utcnow().replace(tzinfo=timezone.utc).timestamp())
+
+        # get creds from db & decrypt password
         creds = teams[str(ctx.message.channel)]['creds']
+        plaintext = rsa_decrypt(creds['pass'], str(ctx.channel.category), creds['user'])
+        creds['pass'] = plaintext
         url = creds["site"]
 
         if not ctf:
