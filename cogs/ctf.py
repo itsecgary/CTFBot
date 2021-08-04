@@ -466,12 +466,8 @@ def get_challenges_rCTF(ctx, url, token, s):
 def rsa_encrypt(plaintext, ctfname, username):
     keypair = RSA.generate(2048)
     keys[f'{ctfname}_{username}'] = {'e': keypair.e, 'd': keypair.d, 'n': keypair.n, 'p': keypair.p, 'q': keypair.q}
-    print(keys)
     pickle.dump(keys, open("passwords.p", "wb"))
     ciphertext = pow(bytes_to_long(plaintext.encode()), keypair.e, keypair.n)
-    print('encrypting')
-    print(plaintext)
-    print(ciphertext)
     return str(ciphertext)
 
 # decrypt password for CTFBot use with use of keypair
@@ -479,9 +475,6 @@ def rsa_decrypt(ciphertext, ctfname, username):
     keypair = keys[f'{ctfname}_{username}']
     plaintext = pow(int(ciphertext), keypair['d'], keypair['n'])
     plaintext = long_to_bytes(plaintext).decode()
-    print('decrypting')
-    print(ciphertext)
-    print(plaintext)
     return plaintext
 
 #################################### CLASSES ###################################
@@ -811,14 +804,14 @@ class CTF(commands.Cog):
 
         # add member to team in DB
         member_list = ctf['teams'][teamname]['members']
-        print(member_list)
+        ### print(member_list)
         for m in member_list:
-            val = member_list[m]['solves'].keys()
+            solve_arr = ", ".join([a for a in member_list[m]['solves']])
             member = server['members'].find_one({'name': m})
             ti = member_list[m]['alias']
-            des = "Overall: {}".format(member['ratings_overall']['overall'])
+            des = "Server Rating: {}".format(member['ratings_overall']['overall'])
             emb = discord.Embed(title=ti, description=des, colour=1752220)
-            emb.add_field(name="Solves: ", value=val, inline=True)
+            emb.add_field(name="Solves: ", value=str(solve_arr), inline=True)
             emb.set_thumbnail(url=member['pfp'])
             await ctx.channel.send(embed=emb)
 
