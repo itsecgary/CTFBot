@@ -56,6 +56,22 @@ def in_channel():
 
     return commands.check(tocheck)
 
+# Get correct place suffix
+def place(pl):
+    if pl == 0:
+        pl = "N/A"
+    elif pl >= 11 and pl <= 13:
+        pl = "{}th".format(pl)
+    elif pl % 10 == 1:
+        pl = "{}st".format(pl)
+    elif pl % 10 == 2:
+        pl = "{}nd".format(pl)
+    elif pl % 10 == 3:
+        pl = "{}rd".format(pl)
+    else:
+        pl = "{}th".format(pl)
+    return pl
+
 def check_aliases(guild, creds, channel_name):
     fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
     server = client[str(guild.name).replace(' ', '-')]['ctfs']
@@ -193,7 +209,6 @@ def calculate(server_name, ctf_name, team_name):
                     weight = ctf['weight']
                     numerator = solved_points*weight
                     denominator = total_points*weight
-                    print(f'cat = {cat}, val = {val}, denominator: {denominator}')
                     ratings[cat]['numerator'] = ratings[cat]['numerator'] + numerator
                     ratings[cat]['denominator'] = ratings[cat]['denominator'] + denominator
                     ratings[cat]['score'] = 100*(ratings[cat]['numerator'] / ratings[cat]['denominator'])
@@ -208,7 +223,7 @@ def calculate(server_name, ctf_name, team_name):
 
             # Update member's DB and set boolean to True
             members.update({'name': name}, {"$set": {f'ratings{e}': ratings, f'competed{e}': arr}}, upsert=True)
-    server['ctfs'].update({'name': ctf_name}, {"$set": {'calculated?': True, 'weight': 25}}, upsert=True)
+    server['ctfs'].update({'name': ctf_name}, {"$set": {'calculated?': True, 'weight': weight}}, upsert=True)
 
 # Grab information for specified challenge on CTFd
 def get_one_CTFd(ctx, url, username, password, s, chall):
@@ -584,18 +599,12 @@ def get_challenges_RACTF(ctx, url, username, password, s):
                 challenges[cat][i]['solver'] = solver
 
     # Add total points to db
-    leaderboard_arr = s.get(f"{apiUrl}/api/v2/leaderboard/graph/", headers=heads).json()['d']['team']
-    rank = 0
-    prev_name = ""
+    leaderboard_arr = s.get(f"{apiUrl}/api/v2/leaderboard/ctftime/", headers=heads).json()['standings']
     for team in leaderboard_arr:
-        if prev_name == team['team_name']:
-            continue
-        rank += 1
-        if team['team_name'] == team_info['name']:
+        if team['team'] == team_info['name']:
+            rank = team['pos']
             break
-        else:
-            prev_name = team['team_name']
-    rank = str(rank)
+    rank = place(int(rank))
 
     teams[team_name]['members'] = members
     teams[team_name]['rank'] = rank
