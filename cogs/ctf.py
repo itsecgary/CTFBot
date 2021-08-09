@@ -22,10 +22,10 @@ chall_aliases = {
     "crypto": ["crypto", "cryptography", "aes", "rsa", "encryption", "encoding", "cipher", "ciphers"],
     "forensics": ["forensics", "stego", "steganography", "memory analysis", "wireshark"],
     "misc": ["misc", "other", "miscellaneous", "trivia", "random", "warmup"],
-    "osint": ["osint" "open source intelligence"],
+    "osint": ["osint", "open source intelligence", "google", "internet"],
     "web exploitation": ["web", "web-exploitation", "web exploitation", "webexp"],
-    "pwn": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation", "kernel exploitation"],
-    "reversing": ["reverse", "reversing", "re", "reverse engineering", "reverse-engineering"],
+    "pwn": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation", "kernel exploitation", "kernel"],
+    "reversing": ["reverse", "reversing", "re", "reverse engineering", "reverse-engineering", "rev"],
     "tryhackme": ["htb", "hackthebox", "hack the box", "try hack me", "tryhackme"]
 }
 keys = pickle.load(open("passwords.p", "rb"))
@@ -164,6 +164,12 @@ def calculate(server_name, ctf_name, team_name):
     ctf = server['ctfs'].find_one({'name': ctf_name})
     num_members = len(ctf['teams'][team_name]['members'].keys())
 
+    # if CTF weight is undefined, default to 25
+    weight = ctf['weight']
+    if weight == 0:
+        weight = 25
+
+
     # Calculate numerators and denominators for each member of competition
     for name, mem_points in ctf['teams'][team_name]['members'].items():
         # Add CTF to competed CTFs in member profile
@@ -187,6 +193,7 @@ def calculate(server_name, ctf_name, team_name):
                     weight = ctf['weight']
                     numerator = solved_points*weight
                     denominator = total_points*weight
+                    print(f'cat = {cat}, val = {val}, denominator: {denominator}')
                     ratings[cat]['numerator'] = ratings[cat]['numerator'] + numerator
                     ratings[cat]['denominator'] = ratings[cat]['denominator'] + denominator
                     ratings[cat]['score'] = 100*(ratings[cat]['numerator'] / ratings[cat]['denominator'])
@@ -201,7 +208,7 @@ def calculate(server_name, ctf_name, team_name):
 
             # Update member's DB and set boolean to True
             members.update({'name': name}, {"$set": {f'ratings{e}': ratings, f'competed{e}': arr}}, upsert=True)
-        server['ctfs'].update({'name': ctf_name}, {"$set": {'calculated?': True}}, upsert=True)
+    server['ctfs'].update({'name': ctf_name}, {"$set": {'calculated?': True, 'weight': 25}}, upsert=True)
 
 # Grab information for specified challenge on CTFd
 def get_one_CTFd(ctx, url, username, password, s, chall):
@@ -460,6 +467,143 @@ def get_challenges_rCTF(ctx, url, token, s):
                 if challname == challenges[cat][i]['name']:
                     challenges[cat][i]['solved'] = True
 
+    return challenges
+
+# Grab all challenge information from competition CTFd and update database
+def get_challenges_RACTF(ctx, url, username, password, s):
+    r = s.get(f"{url}/login")
+    try:
+        apiUrl = r.text.split("apiDomain:\'")[1].split('\'')[0]
+    except:
+        raise NonceNotFound("Was not able to find the apiUrl from login.")
+    try:
+        r = s.post(f"{apiUrl}/api/v2/auth/login/", data={"username": username, "password": password})
+        token = r.json()['d']['token']
+    except: # sometimes errors happen here - possibly due to CTFd versioning
+        raise NonceNotFound("Authentication failed: " + str(r.text))
+
+    heads = {
+        "Authorization": "Token {}".format(token)
+    }
+
+    # Get information from API
+    all_challenges = s.get(f"{apiUrl}/api/v2/challenges/categories/", headers=heads).json()['d']
+    team_info = s.get(f"{apiUrl}/api/v2/team/self/", headers=heads).json()['d']
+    team_solves = team_info['solves']
+
+    # Variables
+    challenges = {}
+    point_info = {
+        "crypto": 0, "forensics": 0, "misc": 0, "osint": 0, "web exploitation": 0,
+        "pwn": 0, "reversing": 0, "tryhackme": 0, "total": 0
+    }
+    solved_points = 0
+    server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+    team_name = str(ctx.channel.name)
+    teams = server.find_one({'name': str(ctx.message.channel.category)})['teams']
+    members = server.find_one({'name': str(ctx.message.channel.category)})['teams'][team_name]['members']
+
+    # Reset points to 0
+    inv_names = ["alias", "name", "solves"]
+    for k, v in members.items():
+        for cat, _ in v.items():
+            if not cat in inv_names : members[k][cat] = 0
+
+    # Add all challenges
+    if len(all_challenges) > 0:
+        for cat_dict in all_challenges:
+            cat = cat_dict['name']
+            for chall in cat_dict['challenges']:
+                challname = chall['name']
+                value = chall['score']
+                point_info['total'] += value
+
+                # Add points for category - misc if not found
+                for real_chall_name, aliases in chall_aliases.items():
+                    if cat.lower() in aliases:
+                        cat = real_chall_name
+                        point_info[real_chall_name] += value
+                        break
+                if point_info[real_chall_name] == 0:
+                    cat = "misc"
+                    point_info["misc"] += value
+
+                chall_entry = {'name': challname, 'solved': False, 'solver': '', 'points': value}
+                if cat in challenges.keys():
+                    challenges[cat].append(chall_entry)
+                else:
+                    challenges[cat] = [chall_entry]
+    else:
+        raise Exception("Error adding all challenges")
+
+    # Add team solves
+    #print(challenges)
+    for solve in team_solves:
+        # not sure why, but they put None values sprinkled in this structure
+        if solve == None:
+            continue
+
+        # Get challenge info
+        challname = solve['challenge_name']
+
+        # search for chall name
+        cat = ""
+        for cat_name, cat_challs in challenges.items():
+            for ch in cat_challs:
+                if ch['name'] == challname:
+                    cat = cat_name
+                    break
+            if cat != "":
+                break
+
+        solver = solve['solved_by_name']
+        solver_id = solve['solved_by']
+        value = solve['points']
+        solved_points += value
+
+        found = 0
+        for real_chall_name, aliases in chall_aliases.items():
+            if cat.lower() in aliases:
+                cat = real_chall_name
+                found = 1
+                break
+        if found == 0:
+            cat = "misc"
+
+        # Add points for member who solved it for specific category
+        for name, attr in members.items():
+            if attr["alias"] == solver:
+                attr[cat] += value
+                #print(attr['solves'])
+                attr['solves'][challname] = value
+
+        # Change challenge_solved info if solved by team
+        for i in range(len(challenges[cat])):
+            if challname == challenges[cat][i]['name']:
+                challenges[cat][i]['solved'] = True
+                challenges[cat][i]['solver'] = solver
+
+    # Add total points to db
+    leaderboard_arr = s.get(f"{apiUrl}/api/v2/leaderboard/graph/", headers=heads).json()['d']['team']
+    rank = 0
+    prev_name = ""
+    for team in leaderboard_arr:
+        if prev_name == team['team_name']:
+            continue
+        rank += 1
+        if team['team_name'] == team_info['name']:
+            break
+        else:
+            prev_name = team['team_name']
+    rank = str(rank)
+
+    teams[team_name]['members'] = members
+    teams[team_name]['rank'] = rank
+    teams[team_name]['solved points'] = solved_points
+
+    ctf_info = {'points': point_info, 'teams': teams}
+    #server.update({'name': str(ctx.message.channel)}, {"$unset": {'total points': ""}}, upsert=True)
+    server.update({'name': str(ctx.channel.category)}, {"$set": ctf_info}, upsert=True)
     return challenges
 
 # generate keypair for CTF password
@@ -806,7 +950,11 @@ class CTF(commands.Cog):
         member_list = ctf['teams'][teamname]['members']
         ### print(member_list)
         for m in member_list:
-            solve_arr = ", ".join([a for a in member_list[m]['solves']])
+            solve_arr = member_list[m]['solves']
+            if len(solve_arr.keys()) == 0:
+                solve_arr = "[]"
+            else:
+                solve_arr = ", ".join(solve_arr)
             member = server['members'].find_one({'name': m})
             ti = member_list[m]['alias']
             des = "Server Rating: {}".format(member['ratings_overall']['overall'])
@@ -974,7 +1122,7 @@ class CTF(commands.Cog):
 
     @staticmethod
     async def pull_challs(self, ctx, creds):
-        fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
+        fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx", "challenge-editor"]
         try:
             if not creds:
                 await ctx.send("Set credentials with `>ctf setcreds ...`")
@@ -1001,6 +1149,10 @@ class CTF(commands.Cog):
             elif fingerprints[2] in r.text:
                 # TODO - Implement CTFx functionality
                 raise InvalidProvider("CTFx functionality coming soon - cannot pull challenges.")
+            elif fingerprints[3] in r.text:
+                user = creds["user"]
+                password = creds["pass"]
+                ctfd_challs = get_challenges_RACTF(ctx, url, user, password, s)
             else:
                 raise InvalidProvider("CTF is not based on CTFd or rCTF - cannot pull challenges.")
 
@@ -1037,8 +1189,12 @@ class CTF(commands.Cog):
 
         # get creds from db & decrypt password
         creds = teams[str(ctx.message.channel)]['creds']
-        plaintext = rsa_decrypt(creds['pass'], str(ctx.channel.category), creds['user'])
-        creds['pass'] = plaintext
+        try:
+            plaintext = rsa_decrypt(creds['pass'], str(ctx.channel.category), creds['user'])
+            creds['pass'] = plaintext
+        except:
+            await ctx.send("Set credentials with `>ctf setcreds ...`")
+            return
 
         if not ctf:
             await ctx.send("Please create a separate channel for this CTF")
