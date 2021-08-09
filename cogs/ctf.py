@@ -939,6 +939,50 @@ class CTF(commands.Cog):
         await ctx.message.add_reaction("✅")
         await channel.send("{} has joined {}!".format(user, teamname))
 
+    @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
+    @commands.has_permissions(manage_channels=True)
+    @ctf.command()
+    @in_channel()
+    @in_ctf_channel()
+    async def rm(self, ctx, user: discord.User, teamname):
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+        ctf = server.find_one({'name': str(ctx.message.channel)})
+        teams = ctf['teams']
+        teamname = teamname.replace(' ','-').lower()
+
+        # Check if team exists
+        if not (teamname in teams.keys()):
+            await ctx.channel.send("The team **{}** does not exist!".format(teamname))
+            return
+
+        # Check if user belongs to the team
+        belongs = False
+        if str(user) in teams[teamname]['members']:
+            belongs = True
+
+        if belongs == False:
+            await ctx.channel.send("{} is not on team {}".format(str(user), teamname))
+            return
+
+        # get member
+        channel = discord.utils.get(ctx.guild.channels, name=teamname)
+        member = ctx.guild.get_member(user.id)
+
+        # get role & remove role from user
+        roles = ctx.guild.roles
+        role = ""
+        for r in roles:
+            if r.name == teamname:
+                await member.remove_roles(r)
+
+        # remove member from team in DB
+        print('before')
+        teams[teamname]['members'].pop(str(user))
+        server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
+
+        await ctx.message.add_reaction("✅")
+        await channel.send("{} has been removed from {}".format(user, teamname))
+
     @ctf.command()
     @in_channel()
     async def members(self, ctx, teamname):
