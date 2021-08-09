@@ -16,6 +16,8 @@ user \"joins\" the ctf general channel for the specific competition.
 forms a team with specified team name (must have permissions to manage channels)*
 `>ctf add @[user] [alias] [team name]`
 adds user as specific alias to specific team (team name as shown for its channel) (must have permissions to manage channels)*
+`>ctf rm @[user] [team name]`
+removes user from specific team (team name as shown for its channel) (must have permissions to manage channels)*
 `>ctf setcreds [ctfd username] [password] [https://ctf.url]`
 give the bot access to your account (to grab info only) and pin the message of ctf credentials
 `>ctf challs`

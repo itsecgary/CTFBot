@@ -976,7 +976,6 @@ class CTF(commands.Cog):
                 await member.remove_roles(r)
 
         # remove member from team in DB
-        print('before')
         teams[teamname]['members'].pop(str(user))
         server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
 
