@@ -912,7 +912,7 @@ class CTF(commands.Cog):
                 return
 
         # get member
-        channel = discord.utils.get(ctx.guild.channels, name=teamname)
+        channel = discord.utils.get(ctx.guild.text_channels, name=teamname)
         member = ctx.guild.get_member(user.id)
 
         # get role & add role to user
@@ -965,7 +965,7 @@ class CTF(commands.Cog):
             return
 
         # get member
-        channel = discord.utils.get(ctx.guild.channels, name=teamname)
+        channel = discord.utils.get(ctx.guild.text_channels, name=teamname)
         member = ctx.guild.get_member(user.id)
 
         # get role & remove role from user
