@@ -124,7 +124,11 @@ class Leaderboard(commands.Cog):
 
         # Format info
         ti = "{}'s CTF Profile".format(str(name).split('#')[0])
-        des = "**Overall:** {} ({})".format(round(member['ratings_semester']['overall'],3), place(count))
+        if member['ratings_semester']['overall'] == 0:
+            show = 0
+        else:
+            show = round(member['ratings_semester']['overall'],3)
+        des = "**Overall:** {} ({})".format(show, place(count))
         emb = discord.Embed(title=ti, description=des, colour=1752220)
         for cat, val in member['ratings_semester'].items():
             if cat == 'overall':
@@ -148,7 +152,12 @@ class Leaderboard(commands.Cog):
                 cat = "TryHackMe :computer:"
             else:
                 cat = cat.capitalize() + " :selfie:"
-            emb.add_field(name=cat, value=round(val['score'], 3), inline=True)
+
+            if val['score'] == 0:
+                show = 0
+            else:
+                show = round(val['score'], 3)
+            emb.add_field(name=cat, value=show, inline=True)
 
         # Send it
         emb.set_thumbnail(url=(ctx.message.author.avatar_url))
@@ -185,8 +194,11 @@ class Leaderboard(commands.Cog):
         for member in info['rankings_semester'][cat.lower()]:
             if count < 5:
                 message = "({}) {}".format(place(count + 1), member['name'].split("#")[0])
-                val = "{}".format(round(member['score'], 3))
-                emb.add_field(name=message, value=val, inline=True)
+                if member['score'] == 0:
+                    show = 0
+                else:
+                    show = round(member['score'], 3)
+                emb.add_field(name=message, value=f'{show}', inline=True)
             else:
                 break
             count += 1

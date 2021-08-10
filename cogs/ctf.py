@@ -72,6 +72,7 @@ def place(pl):
         pl = "{}th".format(pl)
     return pl
 
+# NOTE: currently only used by get_info()
 def check_aliases(guild, creds, channel_name):
     fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
     server = client[str(guild.name).replace(' ', '-')]['ctfs']
@@ -255,6 +256,22 @@ def get_one_CTFd(ctx, url, username, password, s, chall):
 
     # Grab challenge file and attach in message
     challenge_info = s.get("{}/api/v1/challenges/{}".format(url, chall_id)).json()
+
+    # Get attachments
+    files = []
+    m = ""
+    for i in range(len(challenge_info['files'])):
+        fn = challenge_info['files'][i].split('?')[0].split('/')[-1]
+        u = "{}{}".format(url, challenge_info['files'][i])
+        contents = s.get(u).text.encode()
+        #contents = contents
+        with open(fn, 'wb') as f:
+            f.write(contents)
+        files.append(fn)
+        m += fn + ', '
+
+    challenge_info['m'] = m
+    challenge_info['files'] = files
     return challenge_info
 
 # Grab information for specified challenge on rCTF
@@ -291,6 +308,64 @@ def get_one_rCTF(ctx, url, token, s, chall):
     # Grab challenge file and attach in message
     print(chall_dict)
     return chall_dict
+
+# Grab information for specified challenge on CTFd
+def get_one_RACTF(ctx, url, username, password, s, chall):
+    r = s.get(f"{url}/login")
+    try:
+        apiUrl = r.text.split("apiDomain:\'")[1].split('\'')[0]
+    except:
+        raise NonceNotFound("Was not able to find the apiUrl from login.")
+    try:
+        r = s.post(f"{apiUrl}/api/v2/auth/login/", data={"username": username, "password": password})
+        token = r.json()['d']['token']
+    except: # sometimes errors happen here - possibly due to CTFd versioning
+        raise NonceNotFound("Authentication failed: " + str(r.text))
+
+    heads = {
+        "Authorization": "Token {}".format(token)
+    }
+
+    # Get challenge ID
+    all_challenges = s.get(f"{apiUrl}/api/v2/challenges/categories/", headers=heads).json()['d']
+    chall_info = {}
+    for cat_dict in all_challenges:
+        cat = cat_dict['name']
+        for ch in cat_dict['challenges']:
+            if ch['name'].lower() == chall.lower():
+                chall_info = ch
+                break
+
+        if len(chall_info.keys()) > 0:
+            for real_chall_name, aliases in chall_aliases.items():
+                if cat.lower() in aliases:
+                    chall_info['cat'] = real_chall_name
+                    break
+
+            if not ('cat' in chall_info.keys()):
+                chall_info['cat'] = 'misc'
+            break
+
+    # If chall name was not found, return with error message
+    if len(chall_info.keys()) == 0:
+        raise InvalidCredentials("Challenge not found")
+
+    # Get attachments
+    files = []
+    m = ""
+    for i in range(len(chall_info['files'])):
+        fn = chall_info['files'][i]['url'].split('/')[-1]
+        contents = s.get(chall_info['files'][i]['url']).text.encode()
+        with open(fn, 'wb') as f:
+            f.write(contents)
+        files.append(fn)
+        m += fn + ', '
+
+    # Grab challenge file and attach in message
+    challenge_info = {'name': chall_info['name'], 'description': chall_info['description'],
+                      'category': chall_info['cat'], 'solves': chall_info['solve_count'],
+                      'score': chall_info['score'], 'files': files, 'm': m}
+    return challenge_info
 
 # Grab all challenge information from competition CTFd and update database
 def get_challenges_CTFd(ctx, url, username, password, s):
@@ -1009,7 +1084,11 @@ class CTF(commands.Cog):
                 solve_arr = ", ".join(solve_arr)
             member = server['members'].find_one({'name': m})
             ti = member_list[m]['alias']
-            des = "Server Rating: {}".format(member['ratings_overall']['overall'])
+            if member['ratings_overall']['overall'] == 0:
+                show = 0
+            else:
+                show = round(member['ratings_overall']['overall'], 3)
+            des = "Server Rating: {}".format(show)
             emb = discord.Embed(title=ti, description=des, colour=1752220)
             emb.add_field(name="Solves: ", value=str(solve_arr), inline=True)
             emb.set_thumbnail(url=member['pfp'])
@@ -1303,7 +1382,7 @@ class CTF(commands.Cog):
     @ctf.command()
     @in_channel()
     async def pull(self, ctx, chall):
-        fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
+        fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx", "challenge-editor"]
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         ctf = server.find_one({'name': str(ctx.channel.category)})
         teams = ctf['teams']
@@ -1345,6 +1424,11 @@ class CTF(commands.Cog):
                 chall_value = challenge_info['points']
             elif fingerprints[2] in r.text:
                 raise InvalidProvider("CTFx functionality coming soon - cannot pull challenge.")
+            elif fingerprints[3] in r.text:
+                user = creds["user"]
+                password = creds["pass"]
+                challenge_info = get_one_RACTF(ctx, url, user, password, s, chall)
+                chall_value = challenge_info['score']
             else:
                 raise InvalidProvider("CTF is not based on CTFd or rCTF - cannot pull challenge.")
 
@@ -1354,19 +1438,8 @@ class CTF(commands.Cog):
             emb = discord.Embed(title=ti, description=des, colour=1752220)
             emb.add_field(name="Category", value=challenge_info['category'], inline=True)
             emb.add_field(name="Solves", value=challenge_info['solves'], inline=True)
-
-            # Send attachments a.nd reaction
-            files = []
-            m = ""
-            for i in range(len(challenge_info['files'])):
-                fn = challenge_info['files'][i].split('?')[0].split('/')[-1]
-                u = "{}{}".format(url, challenge_info['files'][i])
-                contents = s.get(u).text.encode()
-                #contents = contents
-                with open(fn, 'wb') as f:
-                    f.write(contents)
-                files.append(fn)
-                m += fn + ', '
+            m = challenge_info['m']
+            files = challenge_info['files']
 
             if m == "": m = "N/A  "
             emb.add_field(name="Files", value=m[:-2], inline=True)
