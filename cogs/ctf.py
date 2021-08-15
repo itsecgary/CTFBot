@@ -24,8 +24,8 @@ chall_aliases = {
     "misc": ["misc", "other", "miscellaneous", "trivia", "random", "warmup"],
     "osint": ["osint", "open source intelligence", "google", "internet"],
     "web exploitation": ["web", "web-exploitation", "web exploitation", "webexp"],
-    "pwn": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation", "kernel exploitation", "kernel"],
-    "reversing": ["reverse", "reversing", "re", "reverse engineering", "reverse-engineering", "rev"],
+    "pwn": ["pwn", "pwning", "binary exploitation", "binary-exploitation", "exploitation", "kernel exploitation", "kernel", "pwn / rev"],
+    "reversing": ["reverse", "reversing", "re", "reverse engineering", "reverse-engineering", "rev", "rev / pwn"],
     "tryhackme": ["htb", "hackthebox", "hack the box", "try hack me", "tryhackme"]
 }
 keys = pickle.load(open("passwords.p", "rb"))
@@ -604,8 +604,12 @@ def get_challenges_RACTF(ctx, url, username, password, s):
         for cat_dict in all_challenges:
             cat = cat_dict['name']
             for chall in cat_dict['challenges']:
-                challname = chall['name']
-                value = chall['score']
+                if len(chall['unlock_requirements']) > 0:
+                    challname = 'LOCKED CHALLENGE'
+                    value = 0
+                else:
+                    challname = chall['name']
+                    value = chall['score']
                 point_info['total'] += value
 
                 # Add points for category - misc if not found
@@ -687,7 +691,7 @@ def get_challenges_RACTF(ctx, url, username, password, s):
 
     ctf_info = {'points': point_info, 'teams': teams}
     #server.update({'name': str(ctx.message.channel)}, {"$unset": {'total points': ""}}, upsert=True)
-    server.update({'name': str(ctx.channel.category)}, {"$set": ctf_info}, upsert=True)
+    server.update({'name': str(ctx.channel.category).lower()}, {"$set": ctf_info}, upsert=True)
     return challenges
 
 # generate keypair for CTF password
