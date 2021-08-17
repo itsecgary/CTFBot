@@ -2,5 +2,5 @@ pymongo
 dnspython
 discord
 requests
-PyCryptoDome
+pycryptodome
 pickle

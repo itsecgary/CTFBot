@@ -848,8 +848,7 @@ class CTF(commands.Cog):
             "website": event_json["url"], "weight": event_json["weight"],
             "description": event_json["description"], "start": unix_start,
             "end": unix_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours"),
-            "members": {}, "calculated?": False, "logo": event_json["logo"],
-            "teams": {}
+            "calculated?": False, "logo": event_json["logo"], "teams": {}
         }
 
         # Update CTF DB for guild
@@ -875,7 +874,7 @@ class CTF(commands.Cog):
     @in_ctf_channel()
     async def form(self, ctx, teamname):
         servcat = str(ctx.message.channel)
-        teamname = teamname.replace(' ','-').lower()
+        teamname = teamname.replace(' ','-').lower() + '-' + str(ctx.channel.category).lower()
         category = discord.utils.get(ctx.guild.categories, name=servcat)
         if category == None: # Checks if category exists, if it doesn't it will create it.
             cat = await ctx.guild.create_category(servcat)
@@ -950,7 +949,7 @@ class CTF(commands.Cog):
         channel = discord.utils.get(ctx.guild.text_channels, name=str(ctx.message.channel.category).lower())
         ch = self.bot.get_channel(channel.id)
         #print(ctx.guild.channels)
-        await ch.send(f"`{str(ctx.message.channel)}` disbanded")
+        await ch.send(f"`{str(ctx.message.channel).split('-')[0]}` disbanded")
 
         # remove role and channel
         try:
@@ -977,11 +976,11 @@ class CTF(commands.Cog):
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         ctf = server.find_one({'name': str(ctx.message.channel)})
         teams = ctf['teams']
-        teamname = teamname.replace(' ','-').lower()
+        teamname = teamname.replace(' ','-').lower() + '-' + str(ctx.channel.category).lower()
 
         # Check if team exists
         if not (teamname in teams.keys()):
-            await ctx.channel.send("The team **{}** does not exist!".format(teamname))
+            await ctx.channel.send("The team **{}** does not exist!".format(teamname.split('-')[0]))
             return
 
         # Check if user belongs to team already
@@ -1009,14 +1008,8 @@ class CTF(commands.Cog):
         teams[teamname]['members'][str(user)] = member_info
         server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
 
-        # Change alias
-        members = ctf['members']
-        if str(user) in members.keys():
-            members[str(user)]['alias'] = alias
-            server.update({'name': str(ctx.message.channel)}, {"$set": {'members': members}}, upsert=True)
-
         await ctx.message.add_reaction("✅")
-        await channel.send("{} has joined {}!".format(user, teamname))
+        await channel.send("{} has joined {}!".format(user.mention, teamname.split('-')[0]))
 
     @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
     @commands.has_permissions(manage_channels=True)
@@ -1027,11 +1020,11 @@ class CTF(commands.Cog):
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         ctf = server.find_one({'name': str(ctx.message.channel)})
         teams = ctf['teams']
-        teamname = teamname.replace(' ','-').lower()
+        teamname = teamname.replace(' ','-').lower() + '-' + str(ctx.channel.category).lower()
 
         # Check if team exists
         if not (teamname in teams.keys()):
-            await ctx.channel.send("The team **{}** does not exist!".format(teamname))
+            await ctx.channel.send("The team **{}** does not exist!".format(teamname.split('-')[0]))
             return
 
         # Check if user belongs to the team
@@ -1040,7 +1033,7 @@ class CTF(commands.Cog):
             belongs = True
 
         if belongs == False:
-            await ctx.channel.send("{} is not on team {}".format(str(user), teamname))
+            await ctx.channel.send("{} is not on team {}".format(str(user), teamname.split('-')[0]))
             return
 
         # get member
@@ -1059,14 +1052,44 @@ class CTF(commands.Cog):
         server.update({'name': str(ctx.message.channel)}, {"$set": {'teams': teams}}, upsert=True)
 
         await ctx.message.add_reaction("✅")
-        await channel.send("{} has been removed from {}".format(user, teamname))
+        await channel.send("{} has been removed from {}".format(user.mention, teamname.split('-')[0]))
+
+    @ctf.command()
+    @in_channel()
+    async def change(self, ctx, alias, user: discord.User=None):
+        server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
+        ctf = server.find_one({'name': str(ctx.channel.category)})
+        teams = ctf['teams']
+        teamname = str(ctx.message.channel)
+
+        # Check if team exists
+        if not (teamname in teams.keys()):
+            await ctx.channel.send("This command only works in a team channel")
+            return
+
+        if user is None:
+            user = ctx.message.author
+        else:
+            permissions = ctx.message.author.permissions_in(ctx.message.channel)
+            if not (permissions.manage_messages):
+                await ctx.channel.send(f'You do not have the ability to change other members\' aliases')
+                return
+
+        # Check if user is not a part of the team
+        if not (str(user) in teams[teamname]['members'].keys()):
+            await ctx.channel.send(f'{user} is not a part of this team!')
+            return
+
+        teams[teamname]['members'][str(user)]['alias'] = alias
+        server.update({'name': str(ctx.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
+        await ctx.channel.send("{} has changed their alias to **{}**".format(user.mention, alias))
 
     @ctf.command()
     @in_channel()
     async def members(self, ctx, teamname):
         server = client[str(ctx.guild.name).replace(' ', '-')]
         ctf = server['ctfs'].find_one({'name': str(ctx.message.channel)})
-        teamname = teamname.replace(' ','-').lower()
+        teamname = teamname.replace(' ','-').lower() + '-' + str(ctx.channel.category).lower()
         if ctf == None:
             ctf = server['ctfs'].find_one({'name': str(ctx.message.channel.category)})
             if ctf == None:

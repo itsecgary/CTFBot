@@ -20,6 +20,10 @@ adds user as specific alias to specific team (team name as shown for its channel
 removes user from specific team (team name as shown for its channel) (must have permissions to manage channels)*
 `>ctf setcreds [ctfd username] [password] [https://ctf.url]`
 give the bot access to your account (to grab info only) and pin the message of ctf credentials
+`>ctf change [alias]`
+change your alias in the database
+`>ctf change [alias] @[user]`
+change another user's alias (must have permissions)
 `>ctf challs`
 get a list of the challenges in the ctf, and their statuses. *Updates DB every time this is called*
 `>ctf pull "[chall name]"`
