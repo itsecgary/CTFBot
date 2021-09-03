@@ -843,8 +843,8 @@ class CTF(commands.Cog):
         (unix_start, unix_end) = (int(ctf_start.replace(tzinfo=timezone.utc).timestamp()), int(ctf_end.replace(tzinfo=timezone.utc).timestamp()))
         (ctf_hours, ctf_days) = (str(event_json["duration"]["hours"]), str(event_json["duration"]["days"]))
         ctf_info = {
-            "name": event_json["title"].replace(' ', '-').replace('.', '_').lower(),
-            "text_channel": event_json["title"].replace(' ', '-').replace('.', '_').lower(),
+            "name": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').lower(),
+            "text_channel": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').lower(),
             "website": event_json["url"], "weight": event_json["weight"],
             "description": event_json["description"], "start": unix_start,
             "end": unix_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours"),
