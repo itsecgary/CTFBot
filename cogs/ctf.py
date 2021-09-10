@@ -473,6 +473,8 @@ def get_challenges_CTFd(ctx, url, username, password, s):
                     challenges[cat][i]['solved'] = True
                     challenges[cat][i]['solver'] = solver
 
+        # add solver and solved values
+
     # Add total points to db
     rank = ""
     if "place" in team_info['data'].keys() and team_info['data']['place']:
@@ -1499,11 +1501,25 @@ class CTF(commands.Cog):
             await ctx.send("You are only able to run this command in a team channel.")
             return
 
+        # check if challenges are pulled!
+        if not ('challenges' in ctf.keys()):
+            print("Challenges have not been pulled yet. Run the `>ctf challs` command to pull challenges with stored credentials!")
+            await ctx.channel.send("Challenges have not been pulled yet. Run the `>ctf challs` command to pull challenges with stored credentials!")
+        challenges = ctf['challenges']
+
+        # check if chall name exists!!
+        for cat, cat_challs in challenges.items():
+            for c in cat_challs:
+                if c['name'].lower() == chall_name.lower():
+                    print("valid challenge name")
+                    c['solver'] = str(ctx.message.author)
+                    c['solved'] = True
+
         #print(teams)
         #print(teams[teamname])
         teams[teamname]['members'][str(ctx.message.author)]['solves'][chall_name.replace(' ','-').lower()] = ctf['challenges'][chall_name]
-        #server.update({'name': str(ctx.message.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
-        #await ctx.channel.send("{} has solved `{}`".format(ctx.author.name, chall_name))
+        server.update({'name': str(ctx.message.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
+        await ctx.channel.send("{} has solved `{}`".format(ctx.author.name, chall_name))
 
 #################################### SETUP #####################################
 def setup(bot):
