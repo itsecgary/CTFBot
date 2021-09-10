@@ -1505,6 +1505,7 @@ class CTF(commands.Cog):
         if not ('challenges' in ctf.keys()):
             print("Challenges have not been pulled yet. Run the `>ctf challs` command to pull challenges with stored credentials!")
             await ctx.channel.send("Challenges have not been pulled yet. Run the `>ctf challs` command to pull challenges with stored credentials!")
+            return
         challenges = ctf['challenges']
 
         # check if chall name exists!!
