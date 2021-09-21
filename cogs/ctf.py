@@ -473,6 +473,8 @@ def get_challenges_CTFd(ctx, url, username, password, s):
                     challenges[cat][i]['solved'] = True
                     challenges[cat][i]['solver'] = solver
 
+        # add solver and solved values
+
     # Add total points to db
     rank = ""
     if "place" in team_info['data'].keys() and team_info['data']['place']:
@@ -843,8 +845,13 @@ class CTF(commands.Cog):
         (unix_start, unix_end) = (int(ctf_start.replace(tzinfo=timezone.utc).timestamp()), int(ctf_end.replace(tzinfo=timezone.utc).timestamp()))
         (ctf_hours, ctf_days) = (str(event_json["duration"]["hours"]), str(event_json["duration"]["days"]))
         ctf_info = {
+<<<<<<< HEAD
             "name": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('(', '').replace(')', '').lower(),
             "text_channel": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('(', '').replace(')', '').lower(),
+=======
+            "name": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').lower(),
+            "text_channel": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').lower(),
+>>>>>>> b9589c2da1ac3a0e443e714c52ab21599461f05b
             "website": event_json["url"], "weight": event_json["weight"],
             "description": event_json["description"], "start": unix_start,
             "end": unix_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours"),
@@ -1499,11 +1506,26 @@ class CTF(commands.Cog):
             await ctx.send("You are only able to run this command in a team channel.")
             return
 
+        # check if challenges are pulled!
+        if not ('challenges' in ctf.keys()):
+            print("Challenges have not been pulled yet. Run the `>ctf challs` command to pull challenges with stored credentials!")
+            await ctx.channel.send("Challenges have not been pulled yet. Run the `>ctf challs` command to pull challenges with stored credentials!")
+            return
+        challenges = ctf['challenges']
+
+        # check if chall name exists!!
+        for cat, cat_challs in challenges.items():
+            for c in cat_challs:
+                if c['name'].lower() == chall_name.lower():
+                    print("valid challenge name")
+                    c['solver'] = str(ctx.message.author)
+                    c['solved'] = True
+
         #print(teams)
         #print(teams[teamname])
         teams[teamname]['members'][str(ctx.message.author)]['solves'][chall_name.replace(' ','-').lower()] = ctf['challenges'][chall_name]
-        #server.update({'name': str(ctx.message.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
-        #await ctx.channel.send("{} has solved `{}`".format(ctx.author.name, chall_name))
+        server.update({'name': str(ctx.message.channel.category)}, {"$set": {'teams': teams}}, upsert=True)
+        await ctx.channel.send("{} has solved `{}`".format(ctx.author.name, chall_name))
 
 #################################### SETUP #####################################
 def setup(bot):
