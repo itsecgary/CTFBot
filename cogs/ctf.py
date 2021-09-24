@@ -256,6 +256,8 @@ def get_one_CTFd(ctx, url, username, password, s, chall):
 
     # Grab challenge file and attach in message
     challenge_info = s.get("{}/api/v1/challenges/{}".format(url, chall_id)).json()
+    if 'data' in challenge_info.keys():
+        challenge_info = challenge_info['data']
 
     # Get attachments
     files = []
