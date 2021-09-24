@@ -256,15 +256,13 @@ def get_one_CTFd(ctx, url, username, password, s, chall):
 
     # Grab challenge file and attach in message
     challenge_info = s.get("{}/api/v1/challenges/{}".format(url, chall_id)).json()
-    if 'data' in challenge_info.keys():
-        challenge_info = challenge_info['data']
 
     # Get attachments
     files = []
     m = ""
-    for i in range(len(challenge_info['files'])):
-        fn = challenge_info['files'][i].split('?')[0].split('/')[-1]
-        u = "{}{}".format(url, challenge_info['files'][i])
+    for i in range(len(challenge_info['data']['files'])):
+        fn = challenge_info['data']['files'][i].split('?')[0].split('/')[-1]
+        u = "{}{}".format(url, challenge_info['data']['files'][i])
         contents = s.get(u).text.encode()
         #contents = contents
         with open(fn, 'wb') as f:
@@ -272,8 +270,8 @@ def get_one_CTFd(ctx, url, username, password, s, chall):
         files.append(fn)
         m += fn + ', '
 
-    challenge_info['m'] = m
-    challenge_info['files'] = files
+    challenge_info['data']['m'] = m
+    challenge_info['data']['files'] = files
     return challenge_info
 
 # Grab information for specified challenge on rCTF
