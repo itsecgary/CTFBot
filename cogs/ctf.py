@@ -260,9 +260,9 @@ def get_one_CTFd(ctx, url, username, password, s, chall):
     # Get attachments
     files = []
     m = ""
-    for i in range(len(challenge_info['files'])):
-        fn = challenge_info['files'][i].split('?')[0].split('/')[-1]
-        u = "{}{}".format(url, challenge_info['files'][i])
+    for i in range(len(challenge_info['data']['files'])):
+        fn = challenge_info['data']['files'][i].split('?')[0].split('/')[-1]
+        u = "{}{}".format(url, challenge_info['data']['files'][i])
         contents = s.get(u).text.encode()
         #contents = contents
         with open(fn, 'wb') as f:
@@ -270,8 +270,8 @@ def get_one_CTFd(ctx, url, username, password, s, chall):
         files.append(fn)
         m += fn + ', '
 
-    challenge_info['m'] = m
-    challenge_info['files'] = files
+    challenge_info['data']['m'] = m
+    challenge_info['data']['files'] = files
     return challenge_info
 
 # Grab information for specified challenge on rCTF
@@ -845,8 +845,8 @@ class CTF(commands.Cog):
         (unix_start, unix_end) = (int(ctf_start.replace(tzinfo=timezone.utc).timestamp()), int(ctf_end.replace(tzinfo=timezone.utc).timestamp()))
         (ctf_hours, ctf_days) = (str(event_json["duration"]["hours"]), str(event_json["duration"]["days"]))
         ctf_info = {
-            "name": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').lower(),
-            "text_channel": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').lower(),
+            "name": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').replace('(', '').replace(')', '').lower(),
+            "text_channel": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').replace('(', '').replace(')', '').lower(),
             "website": event_json["url"], "weight": event_json["weight"],
             "description": event_json["description"], "start": unix_start,
             "end": unix_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours"),
