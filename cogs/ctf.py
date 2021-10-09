@@ -1299,7 +1299,7 @@ class CTF(commands.Cog):
                 await ctx.channel.send("CTF site is down. Try pulling challenges when it's up!")
                 return
 
-            if fingerprints[0] in r.text:
+            if fingerprints[0] in r.text or "pbctf" in r.text:
                 user = creds["user"]
                 password = creds["pass"]
                 ctfd_challs = get_challenges_CTFd(ctx, url, user, password, s)
