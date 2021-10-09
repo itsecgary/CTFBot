@@ -376,7 +376,10 @@ def get_challenges_CTFd(ctx, url, username, password, s):
         try:
             nonce = r.text.split("name=\"nonce\" value=\"")[1].split('">')[0]
         except:
-            raise NonceNotFound("Was not able to find the nonce token from login.")
+            try:
+                nonce = r.text.split("name=\"csrf-token\" content=\"")[1].split('">')[0]
+            except:
+                raise NonceNotFound("Was not able to find the nonce token from login.")
 
     # Login and check if credentials are valid
     r = s.post(f"{url}/login", data={"name": username, "password": password, "nonce": nonce})
