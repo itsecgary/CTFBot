@@ -1282,7 +1282,7 @@ class CTF(commands.Cog):
 
     @staticmethod
     async def pull_challs(self, ctx, creds):
-        fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx", "challenge-editor"]
+        fingerprints = ["CTFd", "meta name=\"rctf-config\"", "CTFx", "challenge-editor"]
         try:
             if not creds:
                 await ctx.send("Set credentials with `>ctf setcreds ...`")
