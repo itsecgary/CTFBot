@@ -235,7 +235,10 @@ def get_one_CTFd(ctx, url, username, password, s, chall):
         try:
             nonce = r.text.split("name=\"nonce\" value=\"")[1].split('">')[0]
         except:
-            raise NonceNotFound("Was not able to find the nonce token from login.")
+            try:
+                nonce = r.text.split("name=\"csrf-token\" content=\"")[1].split('">')[0]
+            except:
+                raise NonceNotFound("Was not able to find the nonce token from login.")
 
     # Login and check if credentials are valid
     r = s.post(f"{url}/login", data={"name": username, "password": password, "nonce": nonce})
@@ -1414,7 +1417,7 @@ class CTF(commands.Cog):
     @ctf.command()
     @in_channel()
     async def pull(self, ctx, chall):
-        fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx", "challenge-editor"]
+        fingerprints = ["CTFd", "meta name=\"rctf-config\"", "CTFx", "challenge-editor"]
         server = client[str(ctx.guild.name).replace(' ', '-')]['ctfs']
         ctf = server.find_one({'name': str(ctx.channel.category)})
         teams = ctf['teams']
@@ -1444,7 +1447,7 @@ class CTF(commands.Cog):
             if url[-1] == "/": url = url[:-1]
             s = requests.session()
             r = s.get("{}/login".format(url))
-            if fingerprints[0] in r.text:
+            if fingerprints[0] in r.text or 'pbctf' in r.text:
                 user = creds["user"]
                 password = creds["pass"]
                 challenge_info = get_one_CTFd(ctx, url, user, password, s, chall)
