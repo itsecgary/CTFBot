@@ -7,6 +7,7 @@ import requests
 import help_info
 from colorama import Fore, Style
 import sys
+from time import time as ttt
 sys.path.append("..")
 from config_vars import *
 
@@ -110,14 +111,23 @@ class CtfTime(commands.Cog):
 
     @ctftime.command()
     async def upcoming(self, ctx, amount=None):
-        if not amount:
-            amount = '3'
+        try:
+            amount = int(amount)
+            if not amount:
+                amount = 3
+            elif amount < 1 or amount > 10:
+                await ctx.channel.send("amount ∈ [1,10]")
+                amount = 3
+        except:
+            await ctx.channel.send("amount ∈ [1,10]")
+            amount = 3
+
         headers = {
             'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:61.0) Gecko/20100101 Firefox/61.0',
         }
-        upcoming_ep = "https://ctftime.org/api/v1/events/"
+        upcoming_ep = f"https://ctftime.org/api/v1/events/?end={round(ttt()) + 60*60*24*7}" # next week of comps
         default_image = "https://pbs.twimg.com/profile_images/2189766987/ctftime-logo-avatar_400x400.png"
-        r = requests.get(upcoming_ep, headers=headers, params=amount)
+        r = requests.get(upcoming_ep, headers=headers)
 
         # Error message when CTFTime is down and doesn't do anything
         if r.status_code == 404:
@@ -125,8 +135,17 @@ class CtfTime(commands.Cog):
             return
 
         upcoming_data = r.json()
+        l = len(upcoming_data)
+        if amount > l:
+            amount = l
+            await ctx.channel.send(f"There are only {l} CTFs in the next week")
+        elif amount < l:
+            l = amount
+            await ctx.channel.send(f"Here are {l} upcoming competitions")
+        else:
+            await ctx.channel.send(f"Here are {l} upcoming competitions")
 
-        for ctf in range(0, int(amount)):
+        for ctf in range(0, l):
             ctf_title = upcoming_data[ctf]["title"]
             (ctf_start, ctf_end) = (upcoming_data[ctf]["start"].replace("T", " ").split("+", 1)[0] + " UTC", upcoming_data[ctf]["finish"].replace("T", " ").split("+", 1)[0] + " UTC")
             (ctf_start, ctf_end) = (re.sub(":00 ", " ", ctf_start), re.sub(":00 ", " ", ctf_end))
