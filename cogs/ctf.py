@@ -850,9 +850,10 @@ class CTF(commands.Cog):
         (ctf_start, ctf_end) = (parse(event_json['start'].replace('T', ' ').split('+', 1)[0]), parse(event_json['finish'].replace('T', ' ').split('+', 1)[0]))
         (unix_start, unix_end) = (int(ctf_start.replace(tzinfo=timezone.utc).timestamp()), int(ctf_end.replace(tzinfo=timezone.utc).timestamp()))
         (ctf_hours, ctf_days) = (str(event_json["duration"]["hours"]), str(event_json["duration"]["days"]))
+        title = event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').replace('(', '').replace(')', '').replace('/', '').lower()
         ctf_info = {
-            "name": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').replace('(', '').replace(')', '').lower(),
-            "text_channel": event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').replace('(', '').replace(')', '').lower(),
+            "name": title,
+            "text_channel": title,
             "website": event_json["url"], "weight": event_json["weight"],
             "description": event_json["description"], "start": unix_start,
             "end": unix_end, "duration": (((ctf_days + " days, ") + ctf_hours) + " hours"),
