@@ -72,6 +72,28 @@ def place(pl):
         pl = "{}th".format(pl)
     return pl
 
+# return a safe discord channel name
+def get_safe_discord_name(name):
+    safe = string.ascii_lowercase + string.ascii_uppercase + string.digits + '-'
+    neww = ''
+    already_added = False
+    for c in name.strip():
+        if c not in safe:
+            if not already_added:
+                neww += '-'
+                already_added = True
+        else:
+            neww += c
+            already_added = False
+
+    if len(neww) >= 99:
+        neww = neww[:99]
+
+    if neww[-1] == '-':
+        neww = neww[:-1]
+
+    return neww
+
 # NOTE: currently only used by get_info()
 def check_aliases(guild, creds, channel_name):
     fingerprints = ["Powered by CTFd", "meta name=\"rctf-config\"", "CTFx"]
@@ -850,7 +872,8 @@ class CTF(commands.Cog):
         (ctf_start, ctf_end) = (parse(event_json['start'].replace('T', ' ').split('+', 1)[0]), parse(event_json['finish'].replace('T', ' ').split('+', 1)[0]))
         (unix_start, unix_end) = (int(ctf_start.replace(tzinfo=timezone.utc).timestamp()), int(ctf_end.replace(tzinfo=timezone.utc).timestamp()))
         (ctf_hours, ctf_days) = (str(event_json["duration"]["hours"]), str(event_json["duration"]["days"]))
-        title = event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').replace('(', '').replace(')', '').replace('/', '').lower()
+        #title = event_json["title"].replace(' ', '-').replace('.', '_').replace('!', '').replace('@', '').replace('(', '').replace(')', '').replace('/', '').lower()
+        title = get_safe_discord_name(event_json["title"])
         ctf_info = {
             "name": title,
             "text_channel": title,
