@@ -92,7 +92,7 @@ def get_safe_discord_name(name):
     if neww[-1] == '-':
         neww = neww[:-1]
 
-    return neww
+    return neww.lower()
 
 # NOTE: currently only used by get_info()
 def check_aliases(guild, creds, channel_name):
